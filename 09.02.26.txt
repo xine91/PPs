@@ -2,30 +2,31 @@ ABCD Chart - Projektreporting Entwicklung - NOC-Dashboard
 
 B Benchmark - Messlatte: Was war die Aufgabenstellung, was wollten wir erreichen? 
 
--Verbesserungen von Berichten sowie visual als auch funktional 
+-Verbesserungen von Berichten sowie visual als auch funktional -- Ergänzung von Informationen, klare Übersicht und Wichtigkeit
 
--Anpassung von der Wikiseite. Beschreibung der Spalten des Berichtes
+-Anpassung von der Wikiseite. Präzise Beschreibung der Spalten des Berichtes
 
 -Adrejs PP-Punkte
  
 
 A Achieved - Was haben wir erreicht? Welche Punkte konnten umgesetzt werden?
 
--Aufgabenstellung erfolgreich umgesetzt:
+-Aufgabenstellung erfolgreich erfüllt:
 1. Zurzeit läuft die Verbesserung von der Genauigkeit der Spalten. z.B Problem mit Versionskontrolle => zusätzliche Skripts sind nötig.
 Das Skript läuft und erfüllt die Aufgabe: Muss aktuelle Versionspakete bereitstellen und damit man sie mit den Kundenversionen vergleichen kann. 
 
--View erklären?
+-View erklären? // die View muss angepasst werden 
 
-2.Wikiseite ist übersichtlich und kann jederzeit ergänzt werden. 
+2.Wikiseite ist übersichtlich und kann jederzeit ergänzt werden, entwickelt sich parallel 
 
 
 C Critical - Wo müssen wir uns Sorgen machen, was könnte kritisch werden, wo entstehen ungeplante Kosten oder sind dritte Personen notwendig?
--Trotz der Verbesserungen können Informationen unübersichtlich oder nicht so genau wie erwartet sein => Feedback 
+
+--
 
 D Do Next - was geschieht als nächstes (wer macht was, bis wann)
--Weitere Anpassung und Verbesserung einzelner Spalten u. parallele Ergänzung der Wiki
+-Weitere Anpassung und Verbesserung einzelner Spalten u. parallele Ergänzung der Wiki welche Spalten
 
 -?HTML Implementierung? 
 
--Feedbacksammlung 
+-Feedbacksammlung: z.B. typische Prozesse beobachten - E-mail Archivierung
