@@ -14,7 +14,7 @@ A Achieved - Was haben wir erreicht? Welche Punkte konnten umgesetzt werden?
 -Aufgabenstellung erfolgreich erfüllt:
 1. Zurzeit läuft die Verbesserung von der Genauigkeit der Spalten. z.B Problem mit Versionskontrolle => zusätzliche Skripts sind nötig.
 Das Skript läuft und erfüllt die Aufgabe: Muss aktuelle Versionspakete bereitstellen und damit man sie mit den Kundenversionen vergleichen kann. 
-
+web seite enteickelt
 -View erklären? // die View muss angepasst werden 
 
 2.Wikiseite ist übersichtlich und kann jederzeit ergänzt werden, entwickelt sich parallel 
@@ -30,3 +30,4 @@ D Do Next - was geschieht als nächstes (wer macht was, bis wann)
 -?HTML Implementierung? 
 
 -Feedbacksammlung: z.B. typische Prozesse beobachten - E-mail Archivierung
+
