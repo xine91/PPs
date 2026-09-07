@@ -1,0 +1,802 @@
+﻿@using topfact.Pulse.Models
+@using System.Linq
+@model topfact.Pulse.Models.ProjektControllingControllerViewModel
+
+@{
+    ViewData["Title"] = "Vorgang Report";
+
+    var firstEntry        = Model.Entries.FirstOrDefault();
+    var vorgangTitel      = (string?)ViewBag.VorgangTitel      ?? firstEntry?.Vorgang ?? "Unbekannter Vorgang";
+    var vorgangFirma      = (string?)ViewBag.VorgangFirma      ?? firstEntry?.Firma   ?? "—";
+    var verantwortlicher  = (string?)ViewBag.Verantwortlicher  ?? "";
+    var vorgangNr         = Model.VorgangNummernInput?.Trim()  ?? "—";
+    var vorgangStart      = (DateTime?)ViewBag.VorgangStart;
+    var vorgangEnde       = (DateTime?)ViewBag.VorgangEnde;
+    var planMin           = (decimal)(ViewBag.PlanMinutenGesamt  ?? 0m);
+    var bearbeiterStats   = (ViewBag.BearbeiterStats as IEnumerable<dynamic>) ?? Enumerable.Empty<dynamic>();
+    var aktionenList      = (ViewBag.AktionenList    as IEnumerable<dynamic>) ?? Enumerable.Empty<dynamic>();
+    var istMin            = (decimal)(ViewBag.IstMinutenGesamt   ?? aktionenList.Sum((dynamic a) => (decimal)(a.IstMinuten ?? 0m)));
+    var anzahlErledigt    = (int)(ViewBag.AnzahlErledigt         ?? 0);
+
+    var cntTotal  = Model.Entries.Count;
+    var cntDone   = Model.Entries.Count(e => GetSKat(e.StatusText) == "done");
+    var cntActive = Model.Entries.Count(e => GetSKat(e.StatusText) == "active");
+    var cntOpen   = cntTotal - cntDone - cntActive;
+    var pct       = cntTotal > 0 ? (int)Math.Round(cntDone * 100.0 / cntTotal) : 0;
+
+    var hasAnyData = cntTotal > 0 || aktionenList.Any();
+
+    var planH     = Math.Round(planMin / 60m, 1);
+    var istH      = Math.Round(istMin  / 60m, 1);
+    var effizienz = planMin > 0 ? (double)istMin / (double)planMin : 0;
+    var deltaH    = Math.Round((istMin - planMin) / 60m, 1);
+    var ueber     = deltaH > 0;
+
+    var circumference = 2.0 * Math.PI * 52.0;
+    var dash          = circumference * pct / 100.0;
+
+    static string GetSKat(string? s) {
+        var t = (s ?? "").ToLowerInvariant();
+        if (t.Contains("erledigt") || t.Contains("fertig") || t.Contains("abgeschlossen") || t.Contains("done") || t.Contains("abgerechnet")) return "done";
+        if (t.Contains("durchführung") || t.Contains("bearbeitung") || t.Contains("aktiv")) return "active";
+        return "open";
+    }
+    static string Ini(string? n) {
+        if (string.IsNullOrWhiteSpace(n)) return "?";
+        return string.Join("", n.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpper(p[0])));
+    }
+    static string FmtH(decimal m) {
+        if (m <= 0) return "—";
+        if (m < 60) return $"{(int)m} min";
+        return $"{Math.Round(m / 60m, 1)} h";
+    }
+    static string FmtDate(DateTime? d) => d.HasValue ? d.Value.ToString("dd.MM.yyyy") : "—";
+}
+
+@section Styles {
+<style>
+    .pc { display:flex; flex-direction:column; gap:1rem; }
+
+    .fbar { background:#111e30; border:1px solid #1a2d47; border-radius:11px; padding:11px 15px; }
+    .frow { display:flex; gap:9px; align-items:flex-end; flex-wrap:wrap; }
+    .fg { display:flex; flex-direction:column; gap:4px; flex:1; min-width:110px; }
+    .fl { font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#2e4a6a; }
+    .tsegs { display:flex; background:#0a1525; border:1px solid #1a2d47; border-radius:7px; padding:2px; gap:2px; }
+    .tseg { flex:1; text-align:center; padding:5px 3px; border-radius:5px; font-size:.7rem; font-weight:600; color:#2e4a6a; border:none; background:transparent; cursor:pointer; transition:all .12s; }
+    .tseg.active { background:#338562; color:#fff; }
+    .tseg:hover:not(.active) { background:rgba(255,255,255,.04); color:#64748b; }
+    .dpair { display:flex; gap:5px; align-items:center; }
+    .fi { appearance:none; background:#0a1525; border:1px solid #1a2d47; border-radius:7px; color:#c8d8ee; font-size:.77rem; padding:7px 9px; width:100%; color-scheme:dark; outline:none; transition:border .12s; }
+    .fi:focus { border-color:#338562; box-shadow:0 0 0 2px rgba(51,133,98,.12); }
+    .bload { background:#338562; border:none; border-radius:7px; color:#fff; font-size:.77rem; font-weight:700; padding:8px 15px; cursor:pointer; display:flex; align-items:center; gap:.35rem; white-space:nowrap; transition:background .12s; text-decoration:none; }
+    .bload:hover { background:#3fa876; }
+    .bback { background:transparent; border:1px solid #1a2d47; border-radius:7px; color:#2e4a6a; font-size:.77rem; font-weight:500; padding:8px 11px; cursor:pointer; display:flex; align-items:center; gap:.35rem; text-decoration:none; transition:all .12s; }
+    .bback:hover { border-color:#2e4a6a; color:#64748b; }
+
+    .hero {
+        background:#111e30;
+        border:1px solid #1a2d47;
+        border-radius:16px;
+        overflow:hidden;
+        position:relative;
+    }
+    .hero-accent {
+        position:absolute; top:0; left:0; right:0; height:2px;
+        background:linear-gradient(90deg, transparent 0%, #338562 30%, #3fa876 50%, #338562 70%, transparent 100%);
+        background-size:200% 100%;
+        animation:accentMove 4s linear infinite;
+    }
+    @@keyframes accentMove { 0%{background-position:200%} 100%{background-position:-200%} }
+
+    .hero-body {
+        display:grid;
+        grid-template-columns:1fr auto;
+        gap:2rem;
+        padding:1.5rem 1.75rem 0;
+        align-items:start;
+    }
+    .hero-eyebrow {
+        font-size:.6rem; font-weight:800; letter-spacing:.14em;
+        text-transform:uppercase; color:#338562;
+        display:flex; align-items:center; gap:.5rem;
+        margin-bottom:.45rem;
+    }
+    .hero-eyebrow::before { content:''; width:18px; height:2px; background:#338562; border-radius:1px; flex-shrink:0; }
+    .hero-title {
+        font-size:1.45rem; font-weight:800; color:#eaf2ff;
+        margin:0 0 .6rem; line-height:1.22; letter-spacing:-.028em;
+    }
+    .hero-meta { display:flex; flex-wrap:wrap; gap:.85rem; }
+    .hmi { display:flex; align-items:center; gap:.38rem; font-size:.77rem; color:#2e4a6a; }
+    .hmi i { font-size:.82rem; color:#243a57; }
+    .hmi b { color:#5a7a9a; font-weight:600; }
+
+    .hero-ring { display:flex; flex-direction:column; align-items:center; gap:.3rem; padding-top:.2rem; }
+    .ring-outer { position:relative; width:120px; height:120px; }
+    .ring-outer svg { width:120px; height:120px; transform:rotate(-90deg); }
+    .r-bg   { fill:none; stroke:#1a2d47; stroke-width:7; }
+    .r-fill { fill:none; stroke:url(#rg); stroke-width:7; stroke-linecap:round; transition:stroke-dasharray .8s cubic-bezier(.4,0,.2,1); }
+    .ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .ring-pct { font-size:1.6rem; font-weight:800; color:#eaf2ff; letter-spacing:-.04em; line-height:1; }
+    .ring-sub { font-size:.56rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#2e4a6a; margin-top:1px; }
+
+    .hero-statusbar {
+        border-top:1px solid #1a2d47;
+        margin-top:1.25rem;
+        padding:.85rem 1.75rem;
+        display:flex; align-items:center; gap:1.2rem; flex-wrap:wrap;
+    }
+    .sbar-track { flex:1; min-width:180px; }
+    .sbar { height:4px; border-radius:2px; background:#0a1525; display:flex; overflow:hidden; }
+    .sbar .s-d { background:linear-gradient(90deg,#10b981,#34d399); }
+    .sbar .s-a { background:#f59e0b; }
+    .sbar .s-o { background:#1e3050; }
+    .sbar-legend { display:flex; gap:.9rem; flex-wrap:wrap; }
+    .sleg { display:flex; align-items:center; gap:.35rem; font-size:.7rem; color:#2e4a6a; }
+    .sleg-dot { width:7px; height:7px; border-radius:50%; }
+    .sleg b { color:#5a7a9a; font-weight:700; }
+
+    .row3 { display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; }
+    .pvi-card {
+        background:#111e30; border:1px solid #1a2d47;
+        border-radius:12px; padding:1rem 1.1rem;
+        position:relative; overflow:hidden;
+        display:flex; flex-direction:column; gap:.25rem;
+    }
+    .pvi-card::before { content:''; position:absolute; top:0; left:0; width:3px; bottom:0; background:var(--pc,#1a2d47); border-radius:3px 0 0 3px; }
+    .pvi-card[data-p="plan"]   { --pc:#6366f1; }
+    .pvi-card[data-p="ist"]    { --pc:#10b981; }
+    .pvi-card[data-p="delta"]  { --pc:var(--dc,#1a2d47); }
+    .pvi-lbl { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#2e4a6a; }
+    .pvi-val { font-size:1.5rem; font-weight:800; color:#eaf2ff; letter-spacing:-.03em; line-height:1.1; font-variant-numeric:tabular-nums; }
+    .pvi-card[data-p="plan"]  .pvi-val { color:#818cf8; }
+    .pvi-card[data-p="ist"]   .pvi-val { color:#10b981; }
+    .pvi-eff { display:inline-flex; align-items:center; gap:.3rem; font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:4px; margin-top:.1rem; }
+    .pvi-eff.over  { background:rgba(239,68,68,.12);  color:#f87171; }
+    .pvi-eff.under { background:rgba(16,185,129,.12); color:#34d399; }
+    .pvi-eff.even  { background:rgba(99,102,241,.12); color:#818cf8; }
+    .pvi-bar-wrap { margin-top:.4rem; }
+    .pvi-bar { height:3px; border-radius:2px; background:#1a2d47; overflow:hidden; }
+    .pvi-bar-fill { height:100%; border-radius:2px; background:var(--pc,#338562); }
+
+    .krow {
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(110px,1fr));
+        gap:.65rem;
+    }
+    .kt {
+        background:#111e30; border:1px solid #1a2d47;
+        border-radius:10px; padding:.75rem .9rem;
+        position:relative; overflow:hidden;
+    }
+    .kt::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--kc,#1a2d47); }
+    .kt[data-k="total"]  { --kc:#338562; }
+    .kt[data-k="done"]   { --kc:#10b981; }
+    .kt[data-k="active"] { --kc:#f59e0b; }
+    .kt[data-k="open"]   { --kc:#6366f1; }
+    .kt[data-k="team"]   { --kc:#338562; }
+    .kt-lbl { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:#2e4a6a; margin-bottom:.2rem; }
+    .kt-val { font-size:1.4rem; font-weight:800; color:#d8e8f8; letter-spacing:-.03em; line-height:1; font-variant-numeric:tabular-nums; }
+    .kt[data-k="done"]   .kt-val { color:#10b981; }
+    .kt[data-k="active"] .kt-val { color:#f59e0b; }
+    .kt[data-k="open"]   .kt-val { color:#818cf8; }
+    .kt-hint { font-size:.62rem; color:#1e3050; margin-top:.15rem; }
+
+    .section-wrap { background:#111e30; border:1px solid #1a2d47; border-radius:13px; overflow:hidden; }
+    .section-bar {
+        display:flex; justify-content:space-between; align-items:center;
+        padding:.8rem 1.1rem; border-bottom:1px solid #1a2d47;
+        cursor:pointer; user-select:none; transition:background .1s;
+    }
+    .section-bar:hover { background:rgba(255,255,255,.012); }
+    .sbl { display:flex; align-items:center; gap:.65rem; }
+    .sicon { width:26px; height:26px; border-radius:6px; background:rgba(51,133,98,.1); display:flex; align-items:center; justify-content:center; }
+    .sicon i { font-size:.85rem; color:#338562; }
+    .slbl { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#3d5a80; }
+    .sbadge { font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,.04); color:#2e4a6a; }
+    .schev { font-size:.95rem; color:#1e3050; transition:transform .18s; }
+    .schev.open { transform:rotate(180deg); }
+
+    .b-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:.75rem; padding:1rem 1.1rem; }
+    .b-card {
+        background:#0d1a2b; border:1px solid #1a2d47;
+        border-radius:11px; padding:1rem 1.1rem;
+        transition:border-color .15s, box-shadow .15s;
+    }
+    .b-card:hover { border-color:#243a57; box-shadow:0 4px 20px rgba(0,0,0,.25); }
+    .b-head { display:flex; align-items:center; gap:.75rem; margin-bottom:.85rem; }
+    .b-avatar {
+        width:36px; height:36px; border-radius:50%;
+        background:linear-gradient(135deg,#338562,#2a6e50);
+        color:#fff; font-size:.68rem; font-weight:800;
+        display:flex; align-items:center; justify-content:center;
+        flex-shrink:0; letter-spacing:0;
+    }
+    .b-name { font-size:.85rem; font-weight:700; color:#c8d8ee; line-height:1.2; }
+    .b-role { font-size:.68rem; color:#2e4a6a; margin-top:1px; }
+    .b-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem; margin-bottom:.85rem; }
+    .b-stat-item { display:flex; flex-direction:column; gap:2px; }
+    .b-stat-lbl { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#1e3050; }
+    .b-stat-val { font-size:.98rem; font-weight:800; color:#8aa0bc; font-variant-numeric:tabular-nums; }
+    .b-stat-val.plan  { color:#818cf8; }
+    .b-stat-val.ist   { color:#10b981; }
+    .b-stat-val.erl   { color:#10b981; }
+    .b-progress { display:flex; flex-direction:column; gap:.3rem; }
+    .b-pbar { height:3px; border-radius:2px; background:#1a2d47; overflow:hidden; }
+    .b-pbar-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,#10b981,#34d399); }
+    .b-plbl { display:flex; justify-content:space-between; font-size:.62rem; color:#1e3050; }
+    .b-plbl span { color:#2e4a6a; }
+    .b-delta {
+        display:inline-flex; align-items:center; gap:.25rem;
+        font-size:.65rem; font-weight:700; padding:2px 7px;
+        border-radius:4px; margin-top:.3rem; align-self:flex-start;
+    }
+    .b-delta.over  { background:rgba(239,68,68,.1);  color:#f87171; }
+    .b-delta.under { background:rgba(16,185,129,.1); color:#34d399; }
+    .b-delta.even  { background:rgba(99,102,241,.08); color:#818cf8; }
+
+    .ak-table { width:100%; border-collapse:collapse; }
+    .ak-table th { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#1e3050; padding:.55rem 1rem; text-align:left; border-bottom:1px solid #0f1d2e; background:#0a1525; }
+    .ak-table td { padding:.7rem 1rem; border-bottom:1px solid #0f1d2e; vertical-align:middle; font-size:.8rem; color:#8aa0bc; }
+    .ak-table tbody tr:last-child td { border-bottom:none; }
+    .ak-table tbody tr:hover td { background:rgba(255,255,255,.015); }
+    .sb { display:inline-flex; align-items:center; gap:4px; font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:4px; border:1px solid var(--bb); background:var(--bbg); color:var(--bfg); white-space:nowrap; }
+    .sb .sd { width:5px; height:5px; border-radius:50%; background:var(--bfg); flex-shrink:0; }
+    .sb[data-s="done"]   { --bb:rgba(16,185,129,.3); --bbg:rgba(16,185,129,.1);  --bfg:#10b981; }
+    .sb[data-s="active"] { --bb:rgba(245,158,11,.3); --bbg:rgba(245,158,11,.1);  --bfg:#f59e0b; }
+    .sb[data-s="open"]   { --bb:rgba(99,102,241,.3); --bbg:rgba(99,102,241,.08); --bfg:#818cf8; }
+    .sb[data-s="other"]  { --bb:rgba(30,48,80,.6);   --bbg:rgba(30,48,80,.3);    --bfg:#3d5a80; }
+    .tba { display:flex; align-items:center; gap:.4rem; }
+    .tba-av { width:20px; height:20px; border-radius:50%; background:#338562; color:#fff; font-size:.55rem; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .tnr { font-family:ui-monospace,"SF Mono",Consolas,monospace; font-size:.68rem; color:#1e3050; }
+
+    .empty-box { display:flex; flex-direction:column; align-items:center; padding:3rem 2rem; gap:.75rem; }
+    .empty-box i { font-size:2rem; color:#1a2d47; }
+    .empty-box strong { font-size:.85rem; color:#2e4a6a; }
+    .empty-box p { font-size:.77rem; color:#1e3050; text-align:center; margin:0; line-height:1.6; }
+
+    .gantt-wrap { padding:1rem 1.1rem; overflow-x:auto; }
+    .g-row { display:grid; grid-template-columns:210px 1fr; gap:12px; align-items:center; min-height:42px; margin-bottom:7px; }
+    .g-lbl { color:#8aa0bc; font-size:.77rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .g-sub { color:#1e3050; font-size:.68rem; margin-top:1px; }
+    .g-axis { position:relative; height:26px; border-radius:6px; background:rgba(255,255,255,.03); }
+    .g-tick { position:absolute; transform:translateX(-50%); top:4px; color:#2e4a6a; font-size:.64rem; font-weight:600; white-space:nowrap; background:rgba(10,21,37,.88); padding:0 4px; border-radius:3px; z-index:2; }
+    .g-track { position:relative; min-height:28px; border-radius:6px; background:rgba(255,255,255,.025); }
+    .g-bar { position:absolute; top:3px; height:22px; border-radius:5px; background:linear-gradient(90deg,#338562,#3fa876); box-shadow:0 2px 8px rgba(51,133,98,.2); min-width:12px; cursor:pointer; transition:filter .12s; }
+    .g-bar:hover { filter:brightness(1.25) drop-shadow(0 0 5px #3fa876aa); }
+
+    .err-box { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); color:#f87171; border-radius:10px; padding:.75rem 1rem; font-size:.8rem; }
+
+    [data-pulse-theme="light"] .fbar,
+    [data-pulse-theme="light"] .hero,
+    [data-pulse-theme="light"] .pvi-card,
+    [data-pulse-theme="light"] .kt,
+    [data-pulse-theme="light"] .section-wrap,
+    [data-pulse-theme="light"] .b-card { background:#fff !important; border-color:#eef1f7 !important; }
+    [data-pulse-theme="light"] .tsegs { background:#f1f5f9 !important; border-color:#eef1f7 !important; }
+    [data-pulse-theme="light"] .tseg { color:#64748b !important; }
+    [data-pulse-theme="light"] .tseg.active { background:#338562 !important; color:#fff !important; }
+    [data-pulse-theme="light"] .fi { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#1e293b !important; color-scheme:light; }
+    [data-pulse-theme="light"] .hero-eyebrow { color:#338562 !important; }
+    [data-pulse-theme="light"] .hero-eyebrow::before { background:#338562 !important; }
+    [data-pulse-theme="light"] .hero-title { color:#0f172a !important; }
+    [data-pulse-theme="light"] .hmi { color:#64748b !important; }
+    [data-pulse-theme="light"] .hmi b { color:#334155 !important; }
+    [data-pulse-theme="light"] .hero-statusbar { border-color:#eef1f7 !important; }
+    [data-pulse-theme="light"] .sbar { background:#f1f5f9 !important; }
+    [data-pulse-theme="light"] .sbar .s-o { background:#e2e8f0 !important; }
+    [data-pulse-theme="light"] .sleg { color:#64748b !important; }
+    [data-pulse-theme="light"] .sleg b { color:#334155 !important; }
+    [data-pulse-theme="light"] .ring-pct { color:#0f172a !important; }
+    [data-pulse-theme="light"] .ring-sub { color:#64748b !important; }
+    [data-pulse-theme="light"] .pvi-lbl,
+    [data-pulse-theme="light"] .kt-lbl,
+    [data-pulse-theme="light"] .fl { color:#64748b !important; }
+    [data-pulse-theme="light"] .pvi-val,
+    [data-pulse-theme="light"] .kt-val { color:#0f172a !important; }
+    [data-pulse-theme="light"] .pvi-card[data-p="plan"]  .pvi-val { color:#4f46e5 !important; }
+    [data-pulse-theme="light"] .pvi-card[data-p="ist"]   .pvi-val { color:#059669 !important; }
+    [data-pulse-theme="light"] .kt[data-k="done"]   .kt-val { color:#059669 !important; }
+    [data-pulse-theme="light"] .kt[data-k="active"] .kt-val { color:#d97706 !important; }
+    [data-pulse-theme="light"] .kt[data-k="open"]   .kt-val { color:#4f46e5 !important; }
+    [data-pulse-theme="light"] .pvi-bar { background:#e2e8f0 !important; }
+    [data-pulse-theme="light"] .section-bar { border-color:#eef1f7 !important; }
+    [data-pulse-theme="light"] .slbl { color:#64748b !important; }
+    [data-pulse-theme="light"] .sbadge { background:#f1f5f9 !important; color:#64748b !important; }
+    [data-pulse-theme="light"] .b-card { background:#f8fafc !important; border-color:#eef1f7 !important; }
+    [data-pulse-theme="light"] .b-name { color:#1e293b !important; }
+    [data-pulse-theme="light"] .b-stat-val { color:#334155 !important; }
+    [data-pulse-theme="light"] .b-stat-val.plan { color:#4f46e5 !important; }
+    [data-pulse-theme="light"] .b-stat-val.ist { color:#059669 !important; }
+    [data-pulse-theme="light"] .b-pbar { background:#e2e8f0 !important; }
+    [data-pulse-theme="light"] .b-plbl { color:#94a3b8 !important; }
+    [data-pulse-theme="light"] .ak-table th { background:#f8fafc !important; color:#64748b !important; border-color:#eef1f7 !important; }
+    [data-pulse-theme="light"] .ak-table td { color:#334155 !important; border-color:#f4f7fb !important; }
+    [data-pulse-theme="light"] .ak-table tbody tr:hover td { background:#f8fafc !important; }
+    [data-pulse-theme="light"] .tnr { color:#94a3b8 !important; }
+    [data-pulse-theme="light"] .sb[data-s="done"]   { --bb:rgba(5,150,105,.3); --bbg:rgba(5,150,105,.08); --bfg:#059669; }
+    [data-pulse-theme="light"] .sb[data-s="active"] { --bb:rgba(217,119,6,.3); --bbg:rgba(217,119,6,.08); --bfg:#d97706; }
+    [data-pulse-theme="light"] .sb[data-s="open"]   { --bb:rgba(79,70,229,.3); --bbg:rgba(79,70,229,.06); --bfg:#4f46e5; }
+    [data-pulse-theme="light"] .g-axis, [data-pulse-theme="light"] .g-track { background:rgba(0,0,0,.03) !important; }
+    [data-pulse-theme="light"] .g-lbl { color:#1e293b !important; }
+    [data-pulse-theme="light"] .g-tick { color:#1e293b !important; background:rgba(248,250,252,.92) !important; }
+    [data-pulse-theme="light"] .err-box { color:#991b1b !important; background:rgba(239,68,68,.07) !important; border-color:rgba(239,68,68,.25) !important; }
+    [data-pulse-theme="light"] .empty-box strong { color:#64748b !important; }
+    [data-pulse-theme="light"] .empty-box p { color:#94a3b8 !important; }
+    [data-pulse-theme="light"] .empty-box i { color:#e2e8f0 !important; }
+</style>
+}
+
+<div class="pc">
+
+<form method="post" id="filterForm">
+    <input type="hidden" name="selectedDays" id="sdInput" value="@Model.SelectedDays" />
+    <div class="fbar">
+        <div class="frow">
+            <a href="/pulse/Organisation/Organisation/Vorgaenge" class="bback"><i class="ri-arrow-left-line"></i> Zurück</a>
+            <div class="fg" style="flex:1.2;min-width:200px;">
+                <span class="fl">Zeitraum</span>
+                <div class="tsegs" id="tsegs">
+                    <button type="button" class="tseg @(Model.SelectedDays==0?"active":"")"   data-val="0">Alle</button>
+                    <button type="button" class="tseg @(Model.SelectedDays==30?"active":"")"  data-val="30">1 Mon.</button>
+                    <button type="button" class="tseg @(Model.SelectedDays==90?"active":"")"  data-val="90">3 Mon.</button>
+                    <button type="button" class="tseg @(Model.SelectedDays==180?"active":"")" data-val="180">6 Mon.</button>
+                    <button type="button" class="tseg @(Model.SelectedDays==365?"active":"")" data-val="365">1 Jahr</button>
+                </div>
+            </div>
+            <div class="fg" style="flex:1.3;min-width:220px;">
+                <span class="fl">Benutzerdefiniert</span>
+                <div class="dpair">
+                    <input type="date" id="dfrom" name="dateFrom" class="fi" value="@Model.DateFrom?.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")">
+                    <span style="color:#1a2d47">→</span>
+                    <input type="date" id="dto" name="dateTo" class="fi" value="@Model.DateTo?.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")">
+                </div>
+            </div>
+            <div class="fg" style="flex:1.1;min-width:180px;">
+                <span class="fl">Vorgangsnummer</span>
+                <input type="text" name="vorgangNummernInput" class="fi" placeholder="z. B. 61583" value="@Model.VorgangNummernInput" />
+            </div>
+            <button type="submit" class="bload"><i class="ri-refresh-line"></i> Laden</button>
+             
+            @if (!string.IsNullOrWhiteSpace(Model.VorgangNummernInput))
+            {
+                <a href="/pulse/Organisation/Monitor/ExportWeeklyPdf?vorgangNummernInput=@Model.VorgangNummernInput"
+                   class="bload"
+                   style="background:#0f2942; border:1px solid #2e4a6a;"
+                   title="Wochenbericht aktuelle KW als PDF herunterladen"
+                   target="_blank">
+                    <i class="ri-file-pdf-2-line"></i> PDF Woche
+                </a>
+            } 
+
+        </div>
+    </div>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage) && !hasAnyData)
+{
+    <div class="err-box"><i class="ri-error-warning-line"></i> @Model.ErrorMessage</div>
+}
+
+<div class="hero">
+    <div class="hero-accent"></div>
+    <div class="hero-body">
+        <div>
+            <div class="hero-eyebrow">Vorgang #@vorgangNr</div>
+            <h1 class="hero-title">@vorgangTitel</h1>
+            <div class="hero-meta">
+                <span class="hmi"><i class="ri-building-line"></i><b>@vorgangFirma</b></span>
+                @if (!string.IsNullOrWhiteSpace(verantwortlicher))
+                {
+                    <span class="hmi"><i class="ri-user-star-line"></i><b>@verantwortlicher</b></span>
+                }
+                @if (vorgangStart.HasValue)
+                {
+                    <span class="hmi"><i class="ri-calendar-line"></i>Start <b>@FmtDate(vorgangStart)</b></span>
+                }
+                @if (vorgangEnde.HasValue)
+                {
+                    <span class="hmi"><i class="ri-flag-line"></i>Ziel <b>@FmtDate(vorgangEnde)</b></span>
+                }
+                <span class="hmi"><i class="ri-list-check-3"></i><b>@cntTotal</b> Aktionen</span>
+            </div>
+        </div>
+        <div class="hero-ring">
+            <div class="ring-outer">
+                <svg viewBox="0 0 120 120">
+                    <defs>
+                        <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%"   stop-color="#10b981"/>
+                            <stop offset="100%" stop-color="#34d399"/>
+                        </linearGradient>
+                    </defs>
+                    <circle class="r-bg"   cx="60" cy="60" r="52"/>
+                    <circle class="r-fill" cx="60" cy="60" r="52"
+                            stroke-dasharray="@dash.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) @((circumference - dash).ToString("F1", System.Globalization.CultureInfo.InvariantCulture))"
+                            stroke-dashoffset="0"/>
+                </svg>
+                <div class="ring-center">
+                    <div class="ring-pct">@pct%</div>
+                    <div class="ring-sub">Erledigt</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hero-statusbar">
+        <div class="sbar-track">
+            <div class="sbar">
+                <div class="s-d" style="width:@(cntTotal > 0 ? (cntDone * 100.0 / cntTotal).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) : "0")%"></div>
+                <div class="s-a" style="width:@(cntTotal > 0 ? (cntActive * 100.0 / cntTotal).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) : "0")%"></div>
+                <div class="s-o" style="flex:1"></div>
+            </div>
+        </div>
+        <div class="sbar-legend">
+            <span class="sleg"><span class="sleg-dot" style="background:#10b981"></span>Erledigt <b>@cntDone</b></span>
+            <span class="sleg"><span class="sleg-dot" style="background:#f59e0b"></span>In Bearbeitung <b>@cntActive</b></span>
+            <span class="sleg"><span class="sleg-dot" style="background:#334155"></span>Offen <b>@cntOpen</b></span>
+        </div>
+    </div>
+</div>
+
+@{
+    var planFill  = Math.Min(100.0, 100.0);
+    var istFill   = planMin > 0 ? Math.Min(150.0, (double)istMin / (double)planMin * 100.0) : 0.0;
+    var effLabel  = effizienz == 0 ? "Keine Ist-Daten"
+                  : effizienz <= 1.0 ? $"{Math.Round((1 - effizienz) * 100, 0):F0}% unter Plan"
+                  : $"{Math.Round((effizienz - 1) * 100, 0):F0}% über Plan";
+    var effClass  = effizienz == 0 ? "even" : effizienz > 1 ? "over" : "under";
+    var deltaText = deltaH == 0 ? "±0 h" : (deltaH > 0 ? $"+{deltaH} h" : $"{deltaH} h");
+}
+<div class="row3">
+    <div class="pvi-card" data-p="plan">
+        <div class="pvi-lbl">Plan-Aufwand</div>
+        <div class="pvi-val">@planH h</div>
+        <div class="pvi-bar-wrap">
+            <div class="pvi-bar"><div class="pvi-bar-fill" style="width:100%;background:#6366f1"></div></div>
+        </div>
+        <div style="font-size:.65rem;color:#2e4a6a;margin-top:.2rem;">@(planMin > 0 ? $"{(int)planMin} Minuten geplant" : "Keine Plan-Daten")</div>
+    </div>
+    <div class="pvi-card" data-p="ist">
+        <div class="pvi-lbl">Ist-Aufwand</div>
+        <div class="pvi-val">@(istMin > 0 ? istH + " h" : "—")</div>
+        <div class="pvi-bar-wrap">
+            <div class="pvi-bar"><div class="pvi-bar-fill" style="width:@istFill.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%;background:#10b981"></div></div>
+        </div>
+        <div style="font-size:.65rem;color:#2e4a6a;margin-top:.2rem;">@(istMin > 0 ? $"{(int)istMin} Minuten erfasst" : "Noch keine Tätigkeiten")</div>
+    </div>
+    <div class="pvi-card" data-p="delta" style="--dc:@(deltaH > 0 ? "#ef4444" : deltaH < 0 ? "#10b981" : "#6366f1")">
+        <div class="pvi-lbl">Abweichung</div>
+        <div class="pvi-val" style="color:@(deltaH > 0 ? "#f87171" : deltaH < 0 ? "#34d399" : "#818cf8")">@deltaText</div>
+        <span class="pvi-eff @effClass">@effLabel</span>
+    </div>
+</div>
+
+<div class="krow">
+    <div class="kt" data-k="total">
+        <div class="kt-lbl">Aktionen</div>
+        <div class="kt-val">@cntTotal</div>
+        <div class="kt-hint">gesamt</div>
+    </div>
+    <div class="kt" data-k="done">
+        <div class="kt-lbl">Erledigt</div>
+        <div class="kt-val">@cntDone</div>
+        <div class="kt-hint">@pct% Abschluss</div>
+    </div>
+    <div class="kt" data-k="active">
+        <div class="kt-lbl">In Bearb.</div>
+        <div class="kt-val">@cntActive</div>
+        <div class="kt-hint">Durchführung</div>
+    </div>
+    <div class="kt" data-k="open">
+        <div class="kt-lbl">Offen</div>
+        <div class="kt-val">@cntOpen</div>
+        <div class="kt-hint">Planung</div>
+    </div>
+    <div class="kt" data-k="team">
+        <div class="kt-lbl">Team</div>
+        <div class="kt-val">@bearbeiterStats.Count()</div>
+        <div class="kt-hint">Bearbeiter</div>
+    </div>
+</div>
+
+@if (bearbeiterStats.Any())
+{
+    <div class="section-wrap">
+        <div class="section-bar" onclick="tog('bSection','bChev')">
+            <div class="sbl">
+                <div class="sicon"><i class="ri-team-line"></i></div>
+                <span class="slbl">Bearbeiter / Aufwand</span>
+                <span class="sbadge">@bearbeiterStats.Count() Personen</span>
+            </div>
+            <i class="ri-arrow-down-s-line schev" id="bChev"></i>
+        </div>
+        <div id="bSection" style="display:none">
+            <div class="b-grid">
+                @foreach (var b in bearbeiterStats)
+                {
+                    string bName      = b.Bearbeiter ?? "—";
+                    int    bAktionen  = (int)b.AnzahlAktionen;
+                    decimal bPlan     = (decimal)b.PlanMinuten;
+                    decimal bIst      = (decimal)b.IstMinuten;
+                    int    bErl       = (int)b.Erledigt;
+                    int    bPct       = bAktionen > 0 ? (int)Math.Round(bErl * 100.0 / bAktionen) : 0;
+                    double bIstFill   = bPlan > 0 ? Math.Min(100.0, (double)bIst / (double)bPlan * 100.0) : 0;
+                    decimal bDelta    = Math.Round((bIst - bPlan) / 60m, 1);
+                    string bDeltaCls  = bDelta > 0 ? "over" : bDelta < 0 ? "under" : "even";
+                    string bDeltaTxt  = bDelta == 0 ? "im Plan" : bDelta > 0 ? $"+{bDelta} h" : $"{bDelta} h";
+                    <div class="b-card">
+                        <div class="b-head">
+                            <div class="b-avatar">@Ini(bName)</div>
+                            <div>
+                                <div class="b-name">@bName</div>
+                                <div class="b-role">@bAktionen Aktionen · @bPct% erledigt</div>
+                            </div>
+                        </div>
+                        <div class="b-stats">
+                            <div class="b-stat-item">
+                                <span class="b-stat-lbl">Plan</span>
+                                <span class="b-stat-val plan">@FmtH(bPlan)</span>
+                            </div>
+                            <div class="b-stat-item">
+                                <span class="b-stat-lbl">Ist</span>
+                                <span class="b-stat-val ist">@(bIst > 0 ? FmtH(bIst) : "—")</span>
+                            </div>
+                            <div class="b-stat-item">
+                                <span class="b-stat-lbl">Erl.</span>
+                                <span class="b-stat-val erl">@bErl / @bAktionen</span>
+                            </div>
+                        </div>
+                        <div class="b-progress">
+                            <div class="b-pbar"><div class="b-pbar-fill" style="width:@bPct%"></div></div>
+                            <div class="b-plbl">
+                                <span>0</span>
+                                <span>@bPct% fertig</span>
+                                <span>@bAktionen</span>
+                            </div>
+                            @if (bIst > 0)
+                            {
+                                <span class="b-delta @bDeltaCls">@bDeltaTxt</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@if (aktionenList.Any())
+{
+    var aktIstGesamt = aktionenList.Sum((dynamic a) => (decimal)(a.IstMinuten ?? 0m));
+    var aktCnt       = aktionenList.Count();
+    <div class="section-wrap">
+        <div class="section-bar" onclick="tog('taetSection','taetChev')">
+            <div class="sbl">
+                <div class="sicon"><i class="ri-hammer-line"></i></div>
+                <span class="slbl">Aktionen</span>
+                <span class="sbadge">@aktCnt Einträge · @FmtH(aktIstGesamt) gesamt</span>
+            </div>
+            <i class="ri-arrow-down-s-line schev" id="taetChev"></i>
+        </div>
+        <div id="taetSection" style="display:none">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>Tätigkeit</th>
+                        <th style="width:155px">Status</th>
+                        <th style="width:155px">Bearbeiter</th>
+                        <th style="width:100px">Datum</th>
+                        <th style="width:90px;text-align:right">Ist-Zeit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var a in aktionenList.OrderByDescending((dynamic x) => (DateTime?)x.Datum))
+                {
+                    string aKat    = GetSKat((string?)a.StatusText);
+                    string aTitel  = (string?)a.Titel      ?? "—";
+                    string aBeab   = (string?)a.Bearbeiter ?? "—";
+                    string aStat   = string.IsNullOrWhiteSpace((string?)a.StatusText) ? "—" : (string)a.StatusText;
+                    decimal aMin   = (decimal)(a.IstMinuten ?? 0m);
+                    DateTime? aDat = (DateTime?)a.Datum;
+                    <tr>
+                        <td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="@aTitel">@aTitel</td>
+                        <td>
+                            <span class="sb" data-s="@aKat">
+                                <span class="sd"></span>@aStat
+                            </span>
+                        </td>
+                        <td>
+                            <div class="tba">
+                                <span class="tba-av">@Ini(aBeab)</span>
+                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:115px" title="@aBeab">@aBeab</span>
+                            </div>
+                        </td>
+                        <td style="font-size:.72rem;color:#2e4a6a">@(aDat.HasValue ? aDat.Value.ToString("dd.MM.yy") : "—")</td>
+                        <td style="text-align:right;font-size:.75rem;font-variant-numeric:tabular-nums;color:@(aMin > 0 ? "#10b981" : "#2e4a6a")">
+                            @FmtH(aMin)
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (ViewBag.AktionenQueryError != null)
+{
+    <div class="err-box" style="font-size:.75rem;">
+        <i class="ri-error-warning-line"></i>
+        Tätigkeiten konnten nicht geladen werden: @ViewBag.AktionenQueryError
+        <br><small style="opacity:.7">Bitte Spaltennamen in sqlAktionen prüfen (Benennung vs. Titel, fk_Bearbeiter etc.)</small>
+    </div>
+}
+
+<div class="section-wrap">
+    <div class="section-bar" onclick="tog('aktSection','aktChev')">
+        <div class="sbl">
+            <div class="sicon"><i class="ri-list-check-3"></i></div>
+            <span class="slbl">Checkliste</span>
+            <span class="sbadge">@cntTotal</span>
+        </div>
+        <i class="ri-arrow-down-s-line schev" id="aktChev"></i>
+    </div>
+    <div id="aktSection" style="display:none">
+        @if (cntTotal == 0)
+        {
+            <div class="empty-box">
+                <i class="ri-list-check-3"></i>
+                <strong>Keine Checklisten-Punkte vorhanden</strong>
+                <p>Für diesen Vorgang gibt es keine geplanten Checklisten-Punkte.</p>
+            </div>
+        }
+        else
+        {
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px">Nr.</th>
+                        <th>Aktion</th>
+                        <th style="width:155px">Status</th>
+                        <th style="width:155px">Bearbeiter</th>
+                        <th style="width:90px">Datum</th>
+                        <th style="width:80px;text-align:right">Plan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var e in Model.Entries.OrderBy(x => x.Datum))
+                {
+                    var kat = GetSKat(e.StatusText);
+                    <tr>
+                        <td><span class="tnr">@(string.IsNullOrWhiteSpace(e.Nummer) ? "—" : e.Nummer)</span></td>
+                        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="@e.Titel">
+                            @(string.IsNullOrWhiteSpace(e.Titel) ? "—" : e.Titel)
+                        </td>
+                        <td>
+                            <span class="sb" data-s="@kat">
+                                <span class="sd"></span>@(string.IsNullOrWhiteSpace(e.StatusText) ? "Unbekannt" : e.StatusText)
+                            </span>
+                        </td>
+                        <td>
+                            <div class="tba">
+                                <span class="tba-av">@Ini(e.Bearbeiter)</span>
+                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:115px" title="@e.Bearbeiter">@(e.Bearbeiter ?? "—")</span>
+                            </div>
+                        </td>
+                        <td style="font-size:.72rem;color:#2e4a6a">@e.Datum.ToString("dd.MM.yy")</td>
+                        <td style="text-align:right;font-size:.75rem;color:#2e4a6a;font-variant-numeric:tabular-nums">@FmtH(e.ArbeitszeitMinuten)</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@if (hasAnyData)
+{
+    <div class="section-wrap">
+        <div class="section-bar" onclick="tog('ganttSection','ganttChev')">
+            <div class="sbl">
+                <div class="sicon"><i class="ri-bar-chart-horizontal-line"></i></div>
+                <span class="slbl">Zeitplan / Gantt</span>
+                <span class="sbadge">@cntTotal Einträge</span>
+            </div>
+            <i class="ri-arrow-down-s-line schev" id="ganttChev"></i>
+        </div>
+        <div id="ganttSection" style="display:none">
+            <div class="gantt-wrap" id="ganttContainer"></div>
+        </div>
+    </div>
+}
+
+</div>
+
+@section Scripts {
+<script>
+    const ganttData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.Entries.Select(e => new {
+            titel = e.Titel, bearbeiter = e.Bearbeiter,
+            datum = e.Datum, startdatum = e.Startdatum,
+            min   = e.ArbeitszeitMinuten,
+        })
+    ));
+
+    function tog(secId, chevId) {
+        const s = document.getElementById(secId);
+        const c = document.getElementById(chevId);
+        if (!s) return;
+        const isOpen = s.style.display !== 'none';
+        s.style.display = isOpen ? 'none' : '';
+        c?.classList.toggle('open', !isOpen);
+        if (!isOpen && secId === 'ganttSection') {
+            const g = document.getElementById('ganttContainer');
+            if (g && !g.dataset.r) { renderGantt(g, ganttData); g.dataset.r = '1'; }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const segs = document.querySelectorAll('.tseg');
+        const sd   = document.getElementById('sdInput');
+        const df   = document.getElementById('dfrom');
+        const dt   = document.getElementById('dto');
+        const form = document.getElementById('filterForm');
+        segs.forEach(s => s.addEventListener('click', () => {
+            segs.forEach(x => x.classList.remove('active'));
+            s.classList.add('active');
+            sd.value = s.dataset.val;
+            if (df) df.value = '';
+            if (dt) dt.value = '';
+            form?.submit();
+        }));
+        [df, dt].forEach(inp => {
+            if (!inp) return;
+            inp.addEventListener('change', () => {
+                if (inp.value) {
+                    segs.forEach(x => x.classList.remove('active'));
+                    sd.value = '0';
+                    if (df?.value && dt?.value) form?.submit();
+                }
+            });
+        });
+    });
+
+    const pd  = v => { if (!v) return null; const d = new Date(v); return isNaN(d)?null:d; };
+    const tdk = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const fdk = k => { const [y,m,d]=k.split('-').map(Number); return new Date(y,(m||1)-1,d||1); };
+    const fd  = d => `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getFullYear()).slice(-2)}`;
+    const esc = v => { const x=document.createElement('div'); x.textContent=v??''; return x.innerHTML; };
+
+    function renderGantt(c, src) {
+        const tasks = src.map(e => {
+            const s = pd(e.startdatum) || pd(e.datum);
+            if (!s) return null;
+            return { lbl: e.titel||'—', sub: e.bearbeiter||'—', start: s, min: Number(e.min||0) };
+        }).filter(Boolean).sort((a,b)=>a.start-b.start);
+        if (!tasks.length) { c.innerHTML='<p style="padding:1rem;color:#2e4a6a;font-size:.77rem">Keine Daten.</p>'; return; }
+        const keys  = [...new Set(tasks.map(t=>tdk(t.start)))].sort();
+        const days  = keys.map(fdk);
+        const idx   = new Map(keys.map((k,i)=>[k,i]));
+        const cnt   = days.length;
+        const tw    = Math.max(480, cnt*56);
+        const sw    = tw/cnt;
+        const mx    = Math.max(1, ...tasks.map(t=>t.min));
+        const ticks = days.map((d,i)=>{
+            if(cnt>14&&i%2!==0) return '';
+            if(cnt>28&&i%4!==0) return '';
+            return `<span class="g-tick" style="left:${((i+.5)/cnt)*100}%">${fd(d)}</span>`;
+        }).join('');
+        const rows = tasks.map(t=>{
+            const li  = idx.get(tdk(t.start))??0;
+            const mw  = Math.max(16,sw*.88);
+            const bw  = Math.max(12, 12+(t.min/mx)*(mw-12));
+            const bl  = li*sw+(sw-bw)/2;
+            return `<div class="g-row">
+                      <div><div class="g-lbl" title="${esc(t.lbl)}">${esc(t.lbl)}</div><div class="g-sub">${esc(t.sub)} · ${Math.round(t.min)} min</div></div>
+                      <div class="g-track" style="min-width:${tw}px"><div class="g-bar" style="left:${bl}px;width:${bw}px" title="${esc(t.lbl)} — ${esc(t.sub)} — ${t.start.toLocaleDateString()} — ${Math.round(t.min)} min"></div></div>
+                    </div>`;
+        }).join('');
+        c.innerHTML=`<div class="pc-gantt"><div class="g-row" style="margin-bottom:7px"><div></div><div class="g-axis" style="min-width:${tw}px">${ticks}</div></div>${rows}</div>`;
+    }
+</script>
+}

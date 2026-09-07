@@ -1,0 +1,896 @@
+﻿@using topfact.Pulse.Models
+@model VorgaengeIndexViewModel
+@{
+    ViewData["Title"] = "Aktive Vorgänge";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var vm = Model;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-theme-quartz.css" />
+
+    <style>
+        /* ─── Page Header ─────────────────────────────── */
+        .page-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:.75rem; margin-bottom:1.5rem; }
+        .page-header-left h1 { font-size:1.5rem; font-weight:700; color:#f1f5f9; margin:0 0 .2rem; letter-spacing:-.02em; }
+        .page-header-left .crumb { font-size:.7rem; font-weight:700; color:#338562; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.4rem; }
+        .page-header-left p { color:#64748b; font-size:.85rem; margin:0; }
+
+        /* ─── KPI Strip ───────────────────────────────── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: .75rem;
+            margin-bottom: 1.25rem;
+        }
+        .kpi-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,.06);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--kpi-color, #475569); border-radius: 12px 12px 0 0;
+        }
+        .kpi-label { font-size: .7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .3rem; display:flex; align-items:center; gap:.35rem; }
+        .kpi-label i { font-size:.85rem; color: var(--kpi-color, #64748b); }
+        .kpi-value { font-size: 1.75rem; font-weight: 700; color: #f1f5f9; line-height: 1; font-variant-numeric: tabular-nums; }
+        .kpi-sub   { font-size: .7rem; color: #475569; margin-top: .3rem; }
+        .kpi-trend { font-size:.68rem; margin-top:.3rem; display:inline-flex; align-items:center; gap:.25rem; padding:.15rem .45rem; border-radius:4px; font-weight:600; }
+        .kpi-trend.warn  { background:rgba(251,191,36,.12);  color:#fbbf24; }
+        .kpi-trend.good  { background:rgba(34,197,94,.12);   color:#4ade80; }
+        .kpi-trend.info  { background:rgba(139,92,246,.12);  color:#a78bfa; }
+        .kpi-trend.danger{ background:rgba(239,68,68,.12);   color:#f87171; }
+
+        .kpi-card[data-kpi="total"]     { --kpi-color: #338562; }
+        .kpi-card[data-kpi="offen"]     { --kpi-color: #fbbf24; }
+        .kpi-card[data-kpi="offen"]     .kpi-value { color:#fbbf24; }
+        .kpi-card[data-kpi="neu"]       { --kpi-color: #fb923c; }
+        .kpi-card[data-kpi="neu"]       .kpi-value { color:#fb923c; }
+        .kpi-card[data-kpi="fertig"]    { --kpi-color: #4ade80; }
+        .kpi-card[data-kpi="fertig"]    .kpi-value { color:#4ade80; }
+        .kpi-card[data-kpi="aufwand"]   { --kpi-color: #a78bfa; }
+        .kpi-card[data-kpi="rueckstand"]{ --kpi-color: #f87171; }
+        .kpi-card[data-kpi="rueckstand"].kpi-value { color:#f87171; }
+        .kpi-card[data-kpi="unbearbeitet"]{ --kpi-color: #94a3b8; }
+        .kpi-card[data-kpi="altlasten"] { --kpi-color: #fb923c; }
+
+        /* ─── Grid card ───────────────────────────────── */
+        .grid-card { background:#1e293b; border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:1.1rem 1.25rem .75rem; }
+        .grid-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.6rem; margin-bottom:.9rem; }
+        .grid-toolbar-left  { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+        .grid-toolbar-right { display:flex; gap:.5rem; align-items:center; }
+
+        .chip {
+            font-size:.78rem; font-weight:500; color:#94a3b8;
+            background:transparent; border:1px solid rgba(255,255,255,.1);
+            border-radius:7px; padding:.4rem .8rem; cursor:pointer;
+            display:inline-flex; align-items:center; gap:.4rem;
+            transition: all .15s;
+        }
+        .chip:hover  { border-color:rgba(255,255,255,.25); color:#e2e8f0; }
+        .chip.active { background:#338562; color:#fff; border-color:#338562; }
+        .chip .dot   { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+        .chip-count  { opacity:.7; font-variant-numeric:tabular-nums; }
+
+        .search-wrap { position:relative; }
+        .search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#64748b; pointer-events:none; }
+        .grid-search {
+            background:#0f172a; border:1px solid rgba(255,255,255,.08); border-radius:8px;
+            color:#e2e8f0; font-size:.82rem; padding:.42rem .75rem .42rem 2rem;
+            width:240px; outline:none; transition:border-color .15s;
+        }
+        .grid-search::placeholder { color:#475569; }
+        .grid-search:focus { border-color:rgba(51,133,98,.5); }
+
+        #vorgaengeGrid { width:100%; height:calc(100vh - 420px); min-height:380px; }
+        .grid-meta { font-size:.75rem; color:#475569; padding-top:.5rem; text-align:right; }
+
+        /* ─── Cell: VorgangsNr ────────────────────────── */
+        .vno {
+            font-family: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+            font-weight:700; color:#338562; font-size:.8rem;
+        }
+
+        /* ─── Cell: Titel ─────────────────────────────── */
+        .titel-cell { display:flex; flex-direction:column; gap:2px; line-height:1.3; padding:.3rem 0; }
+        .titel-cell .titel { font-weight:500; color:#f1f5f9; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .titel-cell .meta  { font-size:.7rem; color:#64748b; display:flex; gap:.4rem; flex-wrap:wrap; }
+        .titel-cell .tag   { background:rgba(255,255,255,.06); padding:1px 6px; border-radius:3px; font-size:.65rem; color:#94a3b8; }
+
+        /* ─── Cell: Status ────────────────────────────── */
+        .status-pill {
+            display:inline-flex; align-items:center; gap:5px;
+            font-size:.7rem; font-weight:600;
+            padding:3px 9px; border-radius:5px;
+            white-space:nowrap;
+            border:1px solid var(--pill-border);
+            background:var(--pill-bg);
+            color:var(--pill-fg);
+        }
+        .status-pill .pdot { width:6px; height:6px; border-radius:50%; background:var(--pill-fg); flex-shrink:0; }
+        .status-pill[data-kat="neu"]          { --pill-bg:rgba(249,115,22,.15);   --pill-fg:#fb923c; --pill-border:rgba(249,115,22,.4); }
+        .status-pill[data-kat="aktiv"]        { --pill-bg:rgba(234,179,8,.15);    --pill-fg:#fbbf24; --pill-border:rgba(234,179,8,.4); }
+        .status-pill[data-kat="fertig"]       { --pill-bg:rgba(34,197,94,.15);    --pill-fg:#4ade80; --pill-border:rgba(34,197,94,.4); }
+        .status-pill[data-kat="abgerechnet"]  { --pill-bg:rgba(34,197,94,.1);     --pill-fg:#86efac; --pill-border:rgba(34,197,94,.3); }
+        .status-pill[data-kat="unbekannt"]    { --pill-bg:rgba(100,116,139,.15);  --pill-fg:#94a3b8; --pill-border:rgba(100,116,139,.4); }
+
+        /* ─── Cell: Aktionen — kompaktes 2-Zeilen-Layout ─ */
+        .ak-cell {
+            display: flex; flex-direction: column;
+            gap: 4px; padding: .25rem 0; min-width: 140px;
+        }
+
+        /* Zeile 1: drei Zahlen nebeneinander */
+        .ak-nums {
+            display: flex; align-items: center; gap: .6rem;
+            font-size: .75rem; font-variant-numeric: tabular-nums;
+        }
+        .ak-num {
+            display: flex; align-items: center; gap: .25rem;
+            font-weight: 600; white-space: nowrap;
+        }
+        .ak-num .ak-dot {
+            width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        }
+        .ak-num.done   { color: #4ade80; }
+        .ak-num.active { color: #fbbf24; }
+        .ak-num.open   { color: #fb923c; }
+        .ak-num.none   { color: #475569; font-weight: 400; font-style: italic; font-size: .7rem; }
+
+        /* Zeile 2: dünner Fortschrittsbalken */
+        .ak-bar {
+            height: 3px; border-radius: 2px; overflow: hidden;
+            background: rgba(255,255,255,.07);
+            display: flex;
+        }
+        .ak-bar .s-done   { background: #22c55e; }
+        .ak-bar .s-active { background: #eab308; }
+        .ak-bar .s-open   { background: rgba(249,115,22,.4); }
+
+        [data-pulse-theme="light"] .ak-bar { background: #f1f5f9; }
+        [data-pulse-theme="light"] .ak-num.done   { color: #16a34a; }
+        [data-pulse-theme="light"] .ak-num.active { color: #d97706; }
+        [data-pulse-theme="light"] .ak-num.open   { color: #ea580c; }
+        [data-pulse-theme="light"] .ak-num.none   { color: #94a3b8; }
+
+        /* ─── Cell: Bearbeiter ────────────────────────── */
+        .bearbeiter-cell { display:flex; align-items:center; gap:.5rem; }
+        .avatar {
+            width:26px; height:26px; border-radius:50%;
+            background:#338562; color:#fff;
+            font-size:.62rem; font-weight:700;
+            display:inline-flex; align-items:center; justify-content:center;
+            flex-shrink:0;
+        }
+        .avatar.no-bearbeiter { background:#334155; color:#64748b; }
+        .bearbeiter-cell .name { color:#cbd5e1; font-size:.82rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .bearbeiter-cell .name.unassigned { color:#475569; font-style:italic; }
+
+        /* ─── Cell: Dauer / Geändert ──────────────────── */
+        .modified-cell { font-size:.72rem; color:#64748b; }
+        .modified-cell .komm { color:#a78bfa; margin-left:.4rem; }
+        .dauer-cell { font-size:.78rem; color:#cbd5e1; font-variant-numeric:tabular-nums; }
+        .dauer-cell.long { color:#fb923c; font-weight:600; }
+
+        /* ─── AG Grid ─────────────────────────────────── */
+        .ag-theme-quartz .ag-row { cursor:pointer; }
+
+        /* ─── Error ───────────────────────────────────── */
+        .error-box {
+            background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.45);
+            color:#fecaca; border-radius:10px; padding:.9rem 1rem; margin-bottom:1rem;
+        }
+
+        /* ─── LIGHT MODE ──────────────────────────────── */
+        [data-pulse-theme="light"] .page-header-left h1 { color:#1e293b; }
+        [data-pulse-theme="light"] .page-header-left p  { color:#64748b; }
+
+        [data-pulse-theme="light"] .kpi-card,
+        [data-pulse-theme="light"] .grid-card { background:#ffffff !important; border-color:#eef1f7 !important; }
+        [data-pulse-theme="light"] .kpi-label   { color:#64748b !important; }
+        [data-pulse-theme="light"] .kpi-value   { color:#1e293b !important; }
+        [data-pulse-theme="light"] .kpi-sub     { color:#94a3b8 !important; }
+        [data-pulse-theme="light"] .kpi-card[data-kpi="offen"]      .kpi-value { color:#d97706 !important; }
+        [data-pulse-theme="light"] .kpi-card[data-kpi="neu"]        .kpi-value { color:#ea580c !important; }
+        [data-pulse-theme="light"] .kpi-card[data-kpi="fertig"]     .kpi-value { color:#16a34a !important; }
+        [data-pulse-theme="light"] .kpi-card[data-kpi="rueckstand"] .kpi-value { color:#dc2626 !important; }
+
+        [data-pulse-theme="light"] .chip { color:#64748b; border-color:#e2e8f0; }
+        [data-pulse-theme="light"] .chip:hover { color:#1e293b; border-color:#94a3b8; }
+        [data-pulse-theme="light"] .chip.active { background:#338562; color:#fff; border-color:#338562; }
+
+        [data-pulse-theme="light"] .grid-search { background:#f8fafc !important; border-color:#e2e8f0 !important; color:#1e293b !important; }
+        [data-pulse-theme="light"] .grid-search::placeholder { color:#94a3b8 !important; }
+
+        [data-pulse-theme="light"] .titel-cell .titel { color:#1e293b; }
+        [data-pulse-theme="light"] .titel-cell .meta  { color:#64748b; }
+        [data-pulse-theme="light"] .titel-cell .tag   { background:#f1f5f9; color:#64748b; }
+
+        [data-pulse-theme="light"] .bearbeiter-cell .name { color:#334155; }
+        [data-pulse-theme="light"] .bearbeiter-cell .name.unassigned { color:#94a3b8; }
+
+        [data-pulse-theme="light"] .modified-cell { color:#64748b; }
+        [data-pulse-theme="light"] .dauer-cell    { color:#334155; }
+        [data-pulse-theme="light"] .vno           { color:#15803d; }
+
+        [data-pulse-theme="light"] .ak-bar  { background:#f1f5f9; }
+        [data-pulse-theme="light"] .ak-total-hint { color:#94a3b8; }
+        [data-pulse-theme="light"] .ak-detail { color:#94a3b8; }
+        [data-pulse-theme="light"] .ak-offen-badge.no-actions { color:#94a3b8; }
+
+        [data-pulse-theme="light"] .grid-meta { color:#94a3b8; }
+
+        [data-pulse-theme="light"] .status-pill[data-kat="fertig"]      { --pill-fg:#16a34a; --pill-bg:rgba(22,163,74,.1);  --pill-border:rgba(22,163,74,.3); }
+        [data-pulse-theme="light"] .status-pill[data-kat="abgerechnet"] { --pill-fg:#15803d; --pill-bg:rgba(21,128,61,.08); --pill-border:rgba(21,128,61,.25); }
+        [data-pulse-theme="light"] .status-pill[data-kat="aktiv"]       { --pill-fg:#d97706; --pill-bg:rgba(217,119,6,.1);  --pill-border:rgba(217,119,6,.3); }
+        [data-pulse-theme="light"] .status-pill[data-kat="neu"]         { --pill-fg:#ea580c; --pill-bg:rgba(234,88,12,.1);  --pill-border:rgba(234,88,12,.3); }
+
+        [data-pulse-theme="light"] .error-box { color:#991b1b !important; background:rgba(239,68,68,.08) !important; border-color:rgba(239,68,68,.3) !important; }
+
+        /* ── Clickable KPI ──────────────────────────────── */
+        .kpi-card.kpi-clickable { cursor: pointer; transition: transform .15s, box-shadow .15s; }
+        .kpi-card.kpi-clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+        .kpi-click-hint { font-size:.8rem; opacity:.55; margin-left:.15rem; vertical-align: middle; }
+
+        /* ── Modal ──────────────────────────────────────── */
+        .kpi-modal-backdrop {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0,0,0,.55);
+            display: flex; align-items: center; justify-content: center;
+            padding: 1rem;
+        }
+        .kpi-modal {
+            background: var(--card-bg, #1e293b);
+            border: 1px solid var(--border, rgba(255,255,255,.08));
+            border-radius: 14px;
+            width: 98%; max-width: 1800px;
+            max-height: 90vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,.5);
+        }
+        .kpi-modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: .9rem 1.25rem;
+            border-bottom: 1px solid var(--border, rgba(255,255,255,.08));
+            flex-shrink: 0;
+        }
+        .kpi-modal-title { font-weight: 700; font-size: 1rem; color: var(--text-main, #f1f5f9); }
+        .kpi-modal-close {
+            background: none; border: none; cursor: pointer;
+            font-size: 1.4rem; line-height: 1; color: var(--text-muted, #94a3b8);
+            padding: 0 .25rem;
+        }
+        .kpi-modal-close:hover { color: var(--text-main, #f1f5f9); }
+        .kpi-modal-body { overflow-y: auto; padding: 1rem 1.25rem; flex: 1; }
+
+        /* Modal table */
+        .popup-table { width:100%; border-collapse: collapse; font-size: .8rem; }
+        .popup-table th { text-align:left; padding:.45rem .6rem; color: var(--text-muted,#64748b); font-weight:600; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--border,rgba(255,255,255,.08)); white-space:nowrap; }
+        .popup-table td { padding:.5rem .6rem; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:middle; color: var(--text-main,#e2e8f0); }
+        .popup-table tr:last-child td { border-bottom: none; }
+        .popup-table tr:hover td { background: rgba(255,255,255,.03); }
+        .popup-empty { color: var(--text-muted,#64748b); font-size:.85rem; padding: .75rem 0; text-align:center; }
+        .popup-badge { display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:600; padding:2px 7px; border-radius:4px; white-space:nowrap; }
+        .popup-badge.days { background:rgba(251,191,36,.15); color:#fbbf24; }
+        .popup-badge.days.hot { background:rgba(239,68,68,.15); color:#f87171; }
+        .popup-badge.status { background:rgba(100,116,139,.15); color:#94a3b8; }
+        .popup-nr { font-family:monospace; font-weight:700; color:#338562; }
+
+        [data-pulse-theme="light"] .kpi-modal { background:#ffffff; border-color:#eef1f7; }
+        [data-pulse-theme="light"] .kpi-modal-header { border-color:#eef1f7; }
+        [data-pulse-theme="light"] .kpi-modal-title { color:#1e293b; }
+        [data-pulse-theme="light"] .kpi-modal-close { color:#64748b; }
+        [data-pulse-theme="light"] .popup-table th { color:#64748b; border-color:#eef1f7; }
+        [data-pulse-theme="light"] .popup-table td { color:#1e293b; border-color:#f4f7fb; }
+        .popup-table tr.popup-row:hover td { background: rgba(51,133,98,.12); }
+        [data-pulse-theme="light"] .popup-table tr:hover td { background:#f8fafc; }
+        [data-pulse-theme="light"] .popup-table tr.popup-row:hover td { background: rgba(51,133,98,.08); }
+    </style>
+}
+
+<div class="page-header">
+    <div class="page-header-left">
+        <div class="crumb">Vorgangskontrolle</div>
+        <h1>Aktive Vorgänge</h1>
+        <p>Projekte und Aufträge im Überblick — Klick auf eine Zeile öffnet das Detail-Controlling</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(vm.ErrorMessage))
+{
+    <div class="error-box">@vm.ErrorMessage</div>
+}
+
+<!-- KPI-Grid: wird teilweise per JS befüllt (client-seitige Berechnungen) -->
+<div class="kpi-grid">
+    <!-- ── Clickbare KPIs zuerst ── -->
+    <div class="kpi-card kpi-clickable" data-kpi="offen" data-popup="offene" title="Details anzeigen">
+        <div class="kpi-label"><i class="ri-checkbox-multiple-line"></i> Offene Checklisten <i class="ri-arrow-right-s-line kpi-click-hint"></i></div>
+        <div class="kpi-value" id="kpiOffeneVergangenheit">—</div>
+        <div class="kpi-sub">Summe aller Checklistenpunkte</div>
+    </div>
+    <div class="kpi-card kpi-clickable" data-kpi="rueckstand" data-popup="checklisten" title="Details anzeigen">
+        <div class="kpi-label"><i class="ri-file-unknow-line"></i> Projekte ohne Checklisten <i class="ri-arrow-right-s-line kpi-click-hint"></i></div>
+        <div class="kpi-value" id="kpiRueckstand">—</div>
+        <div class="kpi-sub">keine Checklistenpunkte vorhanden</div>
+    </div>
+    <div class="kpi-card kpi-clickable" data-kpi="fertig" data-popup="kunde" title="Details anzeigen">
+        <div class="kpi-label"><i class="ri-time-pending-line"></i> Wartet auf Kunden <i class="ri-arrow-right-s-line kpi-click-hint"></i></div>
+        <div class="kpi-value" id="kpiFertig">—</div>
+        <div class="kpi-sub">Status: wartet auf Kunde / Feedback</div>
+    </div>
+    <div class="kpi-card kpi-clickable" data-kpi="altlasten" data-popup="altlasten" title="Details anzeigen">
+        <div class="kpi-label"><i class="ri-time-line"></i> Altlasten &gt;30 Tage <i class="ri-arrow-right-s-line kpi-click-hint"></i></div>
+        <div class="kpi-value" id="kpiAltlasten">—</div>
+        <div class="kpi-sub">länger als 30 Tage nicht geändert</div>
+    </div>
+    <!-- ── Nicht-clickbare KPIs ── -->
+    <div class="kpi-card kpi-clickable" data-kpi="total" id="kpiTotalCard" title="Alle Vorgänge anzeigen">
+        <div class="kpi-label"><i class="ri-folders-line"></i> Aktive Vorgänge <i class="ri-arrow-right-s-line kpi-click-hint"></i></div>
+        <div class="kpi-value">@vm.CountTotal</div>
+        <div class="kpi-sub">in Bearbeitung oder offen</div>
+    </div>
+    <div class="kpi-card kpi-clickable" data-kpi="neu" id="kpiNeuCard" title="Neu / Offen Filter anzeigen">
+        <div class="kpi-label"><i class="ri-alert-line"></i> Neu / Unbearbeitet <i class="ri-arrow-right-s-line kpi-click-hint"></i></div>
+        <div class="kpi-value">@vm.CountNeu</div>
+        <div class="kpi-sub">noch kein Bearbeiter tätig</div>
+    </div>
+    <div class="kpi-card" data-kpi="unbearbeitet">
+        <div class="kpi-label"><i class="ri-calendar-check-line"></i> Aufwand geplant</div>
+        <div class="kpi-value">@(vm.AufwandGeplantMinuten >= 60 ? $"{vm.AufwandGeplantStundenDecimal:0.#} h" : $"{vm.AufwandGeplantMinuten} min")</div>
+        <div class="kpi-sub">geplanter Aufwand über alle Vorgänge</div>
+    </div>
+    <div class="kpi-card" data-kpi="aufwand">
+        <div class="kpi-label"><i class="ri-bill-line"></i> Abrechnbare Aktionen @DateTime.Now.ToString("MM/yyyy")</div>
+        <div class="kpi-value">@vm.AbrechnbareAktionenMonat</div>
+        <div class="kpi-sub">kostenpflichtige Aktionen @DateTime.Now.ToString("01.MM.") – @DateTime.Now.ToString("dd.MM.yyyy")</div>
+    </div>
+</div>
+
+<!-- ── KPI Detail-Modal ── -->
+<div id="kpiModal" class="kpi-modal-backdrop" style="display:none;" role="dialog" aria-modal="true">
+    <div class="kpi-modal">
+        <div class="kpi-modal-header">
+            <span id="kpiModalTitle" class="kpi-modal-title"></span>
+            <button type="button" class="kpi-modal-close" id="kpiModalClose" aria-label="Schließen">&times;</button>
+        </div>
+        <div class="kpi-modal-body" id="kpiModalBody"></div>
+    </div>
+</div>
+
+<div class="grid-card">
+    <div class="grid-toolbar">
+        <div class="grid-toolbar-left">
+            <button type="button" class="chip active" data-filter="alle">
+                Alle <span class="chip-count" id="cntAlle">@vm.CountTotal</span>
+            </button>
+            <button type="button" class="chip" data-filter="neu">
+                <span class="dot" style="background:#fb923c;"></span>
+                Neu / Offen <span class="chip-count" id="cntNeu">@vm.CountNeu</span>
+            </button>
+            <button type="button" class="chip" data-filter="aktiv">
+                <span class="dot" style="background:#fbbf24;"></span>
+                In Bearbeitung <span class="chip-count" id="cntAktiv">@vm.CountAktiv</span>
+            </button>
+            <button type="button" class="chip" data-filter="erledigt">
+                <span class="dot" style="background:#4ade80;"></span>
+                Erledigt / Abgerechnet <span class="chip-count" id="cntErledigt">0</span>
+            </button>
+        </div>
+        <div class="grid-toolbar-right">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input type="text" id="gridSearch" class="grid-search" placeholder="Nr, Titel, Firma, Bearbeiter…" />
+            </div>
+        </div>
+    </div>
+
+    <div id="vorgaengeGrid" class="ag-theme-quartz"></div>
+
+    <div class="grid-meta">
+        <span id="rowCount">@vm.CountTotal</span> Vorgänge angezeigt
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/dist/ag-grid-community.min.js"></script>
+    <script>
+        let gridApi;
+
+        // ── Rohdaten ────────────────────────────────────────────────────────
+        let allData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(vm.Vorgaenge.Select(v => new {
+            vorgangsNr        = v.VorgangsNr,
+            firma             = v.Firma,
+            titel             = v.Vorgangstitel,
+            vorgangsart       = v.Vorgangsart,
+            artikel           = v.Artikel,
+            statusName        = v.StatusName,
+            statusColor       = v.StatusColor,
+            statusKategorie   = v.StatusKategorie,
+            bearbeiter        = v.Bearbeiter,
+            erfassungsdatum   = v.Erfassungsdatum,
+            dateModified      = v.DateModified,
+            dauerIstMinuten   = v.DauerIstMinuten,
+            aktionen1         = v.Aktionen1,      // erledigt
+            aktionen2         = v.Aktionen2,      // in Bearbeitung
+            aktionen3         = v.Aktionen3,      // offen
+            aktionenGesamt    = v.AktionenGesamt,
+            kundeWartet       = v.KundeWartet,
+            dauerPlanMinuten  = v.DauerPlanMinuten,
+            anzahlChecklistenpunkte = v.AnzahlChecklistenpunkte,
+            anzahlKommentare  = v.AnzahlKommentare,
+            letzterKommentar  = v.LetzterKommentar
+        })));
+
+        // Debug: einmalig alle vorhandenen Status-Werte loggen → Browser-Konsole (F12)
+        console.log('[Pulse] statusKategorie-Werte in den Daten:',
+            [...new Set(allData.map(r => r.statusKategorie))]);
+        console.log('[Pulse] statusName-Werte in den Daten:',
+            [...new Set(allData.map(r => r.statusName))]);
+
+        // Debug: Aktionen-Felder der ersten 10 Zeilen prüfen
+        console.table(allData.slice(0, 10).map(r => ({
+            Nr:          r.vorgangsNr,
+            Titel:       (r.titel || '').substring(0, 30),
+            aktionen1:   r.aktionen1,
+            aktionen2:   r.aktionen2,
+            aktionen3:   r.aktionen3,
+            gesamt:      r.aktionenGesamt,
+            'sum 1+2+3': (r.aktionen1||0)+(r.aktionen2||0)+(r.aktionen3||0),
+        })));
+        // Erledigt-Erkennung: möglichst breit — Kategorie UND Name werden geprüft
+        const ERLEDIGT_KAT = new Set([
+            'fertig','abgerechnet','done','closed','complete','erledigt',
+            'abgeschlossen','beendet','geliefert','archiviert',
+            'rechnunggestellt','rechnung gestellt','billed','invoiced',
+        ]);
+        const ERLEDIGT_FRAGMENTS = [
+            'abgerechnet','erledigt','abgeschlossen','beendet','fertig',
+            'geliefert','archiviert','rechnung','billed','invoiced','closed','done',
+        ];
+        const istErledigt = r => {
+            const kat  = (r.statusKategorie ?? '').toLowerCase().trim();
+            const name = (r.statusName     ?? '').toLowerCase().trim();
+            return ERLEDIGT_KAT.has(kat) ||
+                   ERLEDIGT_FRAGMENTS.some(f => name.includes(f));
+        };
+
+        let activeFilter = 'alle';
+
+        // ── KPI Berechnungen ────────────────────────────────────────────────
+        function calcKpis() {
+            const now     = Date.now();
+            const today   = new Date(); today.setHours(0,0,0,0);
+
+            // 1. Offene Checklisten: Summe aller Checklistenpunkte über alle Vorgänge
+            const offeneVergangenheit = allData.reduce((sum, r) => sum + (r.anzahlChecklistenpunkte ?? 0), 0);
+
+            // 2. Projekte ohne Checklisten (keine Checklistenpunkte vorhanden)
+            const ohneChecklisten = allData.filter(r =>
+                (r.anzahlChecklistenpunkte ?? 0) === 0
+            ).length;
+
+            // 3. Projekte wo wir auf den Kunden warten (aus SQL-Flag kundeWartet)
+            const kundeWartet = allData.filter(r => r.kundeWartet === true).length;
+
+            // 4. Altlasten >30 Tage
+            const altlastenCount = allData.filter(r => {
+                if (!r.dateModified) return true;
+                const days = (now - new Date(r.dateModified).getTime()) / 86400000;
+                return days > 30;
+            }).length;
+
+            // 5. Erledigt (für Filter-Chip)
+            const erledigtCount = allData.filter(r => istErledigt(r)).length;
+
+            document.getElementById('kpiOffeneVergangenheit').textContent = offeneVergangenheit;
+            document.getElementById('kpiRueckstand').textContent          = ohneChecklisten;
+            document.getElementById('kpiFertig').textContent              = kundeWartet;
+            document.getElementById('kpiAltlasten').textContent           = altlastenCount;
+            document.getElementById('cntErledigt').textContent            = erledigtCount;
+        }
+
+        // ── Formatierung ────────────────────────────────────────────────────
+        const esc    = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+        const fmtDate = d => d ? new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+        const fmtRelativ = d => {
+            if (!d) return '—';
+            const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+            if (days === 0) return 'heute';
+            if (days === 1) return 'gestern';
+            if (days < 7)   return `vor ${days} Tagen`;
+            if (days < 30)  return `vor ${Math.floor(days/7)} Wo.`;
+            if (days < 365) return `vor ${Math.floor(days/30)} Mon.`;
+            return `vor ${Math.floor(days/365)} J.`;
+        };
+        const fmtDauer = m => {
+            if (!m) return '—';
+            const h = Math.floor(m / 60);
+            if (h === 0) return `${m} min`;
+            if (h < 24)  return `${h} h`;
+            return `${Math.round(h/8)} T`;
+        };
+        const initials = name => (name || '?').split(/\s+/).filter(Boolean).slice(0,2).map(p => p[0].toUpperCase()).join('');
+
+        // ── Cell Renderer ────────────────────────────────────────────────────
+
+        const renderVno = p => `<span class="vno">#${esc(String(p.value))}</span>`;
+
+        const renderTitel = p => {
+            const r = p.data;
+            return `<div class="titel-cell">
+                      <div class="titel" title="${esc(r.titel)}">${esc(r.titel)}</div>
+                      <div class="meta">
+                        ${r.vorgangsart ? `<span class="tag">${esc(r.vorgangsart)}</span>` : ''}
+                        ${r.artikel     ? `<span>${esc(r.artikel)}</span>` : ''}
+                        ${r.firma       ? `<span style="color:#64748b">${esc(r.firma)}</span>` : ''}
+                      </div>
+                    </div>`;
+        };
+
+        const renderStatus = p => {
+            const r   = p.data;
+            const kat = istErledigt(r)
+                ? (r.statusName?.toLowerCase().includes('abgerechnet') ? 'abgerechnet' : 'fertig')
+                : (r.statusKategorie || 'unbekannt');
+            return `<span class="status-pill" data-kat="${esc(kat)}">
+                      <span class="pdot"></span>${esc(r.statusName)}
+                    </span>`;
+        };
+
+        /**
+         * Aktionen-Felder (korrekte Zuordnung laut ViewModel):
+         *   aktionen1 = in Planung / unbearbeitet  → offen
+         *   aktionen2 = in Bearbeitung / Durchführung → aktiv
+         *   aktionen3 = Erledigt                   → done
+         */
+        const renderAktionen = p => {
+            const r      = p.data;
+            const open   = +(r.aktionen1 ?? 0);   // Planung / offen
+            const active = +(r.aktionen2 ?? 0);   // in Bearbeitung
+            const done   = +(r.aktionen3 ?? 0);   // Erledigt
+            const total  = open + active + done;
+
+            if (total === 0) {
+                return `<div class="ak-cell">
+                          <span class="ak-num none">keine Aktionen</span>
+                        </div>`;
+            }
+
+            const pDone   = (done   / total * 100).toFixed(1);
+            const pActive = (active / total * 100).toFixed(1);
+            const pOpen   = (open   / total * 100).toFixed(1);
+
+            const numDone   = done   > 0 ? `<span class="ak-num done">  <span class="ak-dot" style="background:#22c55e"></span>${done} erl.</span>`   : '';
+            const numActive = active > 0 ? `<span class="ak-num active"><span class="ak-dot" style="background:#eab308"></span>${active} akt.</span>` : '';
+            const numOpen   = open   > 0 ? `<span class="ak-num open">  <span class="ak-dot" style="background:#f97316"></span>${open} off.</span>`   : '';
+
+            const nums = (open === 0 && active === 0)
+                ? `<span class="ak-num done"><span class="ak-dot" style="background:#22c55e"></span>alle ${done} erledigt</span>`
+                : `${numDone}${numActive}${numOpen}`;
+
+            return `<div class="ak-cell">
+                      <div class="ak-nums">${nums}</div>
+                      <div class="ak-bar">
+                        <div class="s-done"   style="width:${pDone}%"></div>
+                        <div class="s-active" style="width:${pActive}%"></div>
+                        <div class="s-open"   style="width:${pOpen}%"></div>
+                      </div>
+                    </div>`;
+        };
+
+        const renderBearbeiter = p => {
+            const name = p.data.bearbeiter || '';
+            const noOne = !name;
+            return `<div class="bearbeiter-cell">
+                      <span class="avatar${noOne ? ' no-bearbeiter' : ''}">${esc(noOne ? '?' : initials(name))}</span>
+                      <span class="name${noOne ? ' unassigned' : ''}" title="${esc(name)}">${esc(noOne ? 'nicht zugewiesen' : name)}</span>
+                    </div>`;
+        };
+
+        const renderDauer = p => {
+            const minuten = p.value;
+            const stunden = Math.floor((minuten || 0) / 60);
+            const isLong  = stunden >= 40;
+            return `<span class="dauer-cell${isLong ? ' long' : ''}">${fmtDauer(minuten)}</span>`;
+        };
+
+        const renderModified = p => {
+            const r = p.data;
+            return `<span class="modified-cell">
+                      ${fmtRelativ(r.dateModified)}
+                      ${r.anzahlKommentare > 0 ? `<span class="komm">💬 ${r.anzahlKommentare}</span>` : ''}
+                    </span>`;
+        };
+
+        // ── Column Definitions ──────────────────────────────────────────────
+        const columnDefs = [
+            {
+                field: 'vorgangsNr', headerName: 'Nr.',
+                width: 90, sortable: true,
+                cellRenderer: renderVno
+            },
+            {
+                field: 'titel', headerName: 'Vorgang',
+                flex: 2, minWidth: 260, sortable: true, filter: true,
+                cellRenderer: renderTitel, autoHeight: true
+            },
+            {
+                field: 'firma', headerName: 'Firma',
+                flex: 1, minWidth: 160, sortable: true, filter: true,
+                cellStyle: { fontSize: '.82rem', color: '#94a3b8' }
+            },
+            {
+                field: 'statusName', headerName: 'Status',
+                width: 185, sortable: true,
+                cellRenderer: renderStatus,
+                cellStyle: { display: 'flex', alignItems: 'center' }
+            },
+            {
+                field: 'aktionenGesamt', headerName: 'Aktionen',
+                width: 175, sortable: true,
+                cellRenderer: renderAktionen,
+                cellStyle: { display: 'flex', alignItems: 'center' }
+            },
+            {
+                field: 'bearbeiter', headerName: 'Bearbeiter',
+                width: 175, sortable: true,
+                cellRenderer: renderBearbeiter,
+                cellStyle: { display: 'flex', alignItems: 'center' }
+            },
+            {
+                field: 'dauerIstMinuten', headerName: 'Dauer Ist',
+                width: 105, sortable: true,
+                cellRenderer: renderDauer,
+                cellStyle: { display: 'flex', alignItems: 'center' }
+            },
+            {
+                field: 'erfassungsdatum', headerName: 'Erfasst',
+                width: 105, sortable: true,
+                valueFormatter: p => fmtDate(p.value),
+                cellStyle: { display: 'flex', alignItems: 'center', color: '#64748b', fontSize: '.72rem' }
+            },
+            {
+                field: 'dateModified', headerName: 'Letzte Änderung',
+                width: 160, sortable: true,
+                cellRenderer: renderModified,
+                cellStyle: { display: 'flex', alignItems: 'center' }
+            },
+        ];
+
+        // ── Filter ───────────────────────────────────────────────────────────
+        function applyFilter() {
+            if (!gridApi) return;
+            const q = (document.getElementById('gridSearch').value || '').toLowerCase();
+
+            let rows;
+            switch (activeFilter) {
+                case 'neu':
+                    rows = allData.filter(r => r.statusKategorie === 'neu'); break;
+                case 'aktiv':
+                    rows = allData.filter(r => r.statusKategorie === 'aktiv'); break;
+                case 'erledigt':
+                    rows = allData.filter(r => istErledigt(r)); break;
+                default:
+                    rows = allData;
+            }
+
+            if (q) {
+                rows = rows.filter(r =>
+                    ['vorgangsNr','firma','titel','bearbeiter','statusName','vorgangsart','artikel']
+                        .some(k => r[k] != null && String(r[k]).toLowerCase().includes(q))
+                );
+            }
+
+            gridApi.setGridOption('rowData', rows);
+            document.getElementById('rowCount').textContent = rows.length;
+        }
+
+        // ── Grid initialisieren ──────────────────────────────────────────────
+        function onGridReady(params) {
+            gridApi = params.api;
+            gridApi.setGridOption('rowData', allData);
+            document.getElementById('rowCount').textContent = allData.length;
+        }
+
+        function onRowClicked(e) {
+            window.location.href = `/pulse/Organisation/Monitor/ProjektControlling?vorgangNummernInput=${e.data.vorgangsNr}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // KPIs berechnen
+            calcKpis();
+
+            // AG Grid erstellen
+            agGrid.createGrid(document.getElementById('vorgaengeGrid'), {
+                columnDefs,
+                rowData: [],
+                pagination: true,
+                paginationPageSize: 100,
+                paginationPageSizeSelector: [25, 50, 100, 250],
+                animateRows: true,
+                rowHeight: 60,
+                defaultColDef: { resizable: true },
+                onGridReady,
+                onRowClicked,
+            });
+
+            // Filter-Chips
+            document.querySelectorAll('.chip[data-filter]').forEach(c => {
+                c.addEventListener('click', () => {
+                    document.querySelectorAll('.chip[data-filter]').forEach(x => x.classList.remove('active'));
+                    c.classList.add('active');
+                    activeFilter = c.dataset.filter;
+                    applyFilter();
+                });
+            });
+
+            // Suche
+            document.getElementById('gridSearch').addEventListener('input', applyFilter);
+
+            // ── KPI Popup ────────────────────────────────────────────────────
+            const modal        = document.getElementById('kpiModal');
+            const modalTitle   = document.getElementById('kpiModalTitle');
+            const modalBody    = document.getElementById('kpiModalBody');
+            const modalClose   = document.getElementById('kpiModalClose');
+
+            const fmtDays = days => {
+                const d = Math.floor(days);
+                const cls = d > 60 ? 'hot' : '';
+                return `<span class="popup-badge days ${cls}">${d} Tage</span>`;
+            };
+
+            function buildTable(cols, rows) {
+                if (!rows.length) return `<div class="popup-empty">Keine Einträge gefunden.</div>`;
+                const head = cols.map(c => `<th>${c.label}</th>`).join('');
+                const body = rows.map(r => {
+                    const cells = cols.map(c => `<td>${c.render ? c.render(r) : (r[c.key] ?? '—')}</td>`).join('');
+                    return `<tr class="popup-row" data-nr="${r.vorgangsNr}" style="cursor:pointer;" title="Vorgang #${r.vorgangsNr} öffnen">${cells}</tr>`;
+                }).join('');
+                return `<table class="popup-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+            }
+
+            modalBody.addEventListener('click', e => {
+                const row = e.target.closest('tr.popup-row');
+                if (!row) return;
+                const nr = row.dataset.nr;
+                if (nr) window.location.href = `/pulse/Organisation/Monitor/ProjektControlling?vorgangNummernInput=${nr}`;
+            });
+
+            const popupBuilders = {
+                offene: () => {
+                    const rows = allData.filter(r => (r.anzahlChecklistenpunkte ?? 0) > 0)
+                        .sort((a, b) => (b.anzahlChecklistenpunkte ?? 0) - (a.anzahlChecklistenpunkte ?? 0));
+                    const cols = [
+                        { label: 'Nr.',         key: 'vorgangsNr',           render: r => `<span class="popup-nr">#${r.vorgangsNr}</span>` },
+                        { label: 'Titel',       key: 'titel' },
+                        { label: 'Firma',       key: 'firma' },
+                        { label: 'Bearbeiter',  key: 'bearbeiter',           render: r => r.bearbeiter || '<span style="color:#64748b">—</span>' },
+                        { label: 'Status',      key: 'statusName',           render: r => `<span class="popup-badge status">${r.statusName}</span>` },
+                        { label: 'Checklistenpunkte', key: 'anzahlChecklistenpunkte', render: r => `<b>${r.anzahlChecklistenpunkte}</b>` },
+                    ];
+                    const sumChecks = rows.reduce((s, r) => s + (r.anzahlChecklistenpunkte ?? 0), 0);
+                    return { title: `Offene Checklisten (${sumChecks} Punkte in ${rows.length} Vorgängen)`, html: buildTable(cols, rows) };
+                },
+                checklisten: () => {
+                    const rows = allData.filter(r => (r.anzahlChecklistenpunkte ?? 0) === 0);
+                    const cols = [
+                        { label: 'Nr.',       key: 'vorgangsNr',  render: r => `<span class="popup-nr">#${r.vorgangsNr}</span>` },
+                        { label: 'Titel',     key: 'titel' },
+                        { label: 'Firma',     key: 'firma' },
+                        { label: 'Bearbeiter',key: 'bearbeiter', render: r => r.bearbeiter || '<span style="color:#64748b">—</span>' },
+                        { label: 'Status',    key: 'statusName', render: r => `<span class="popup-badge status">${r.statusName}</span>` },
+                        { label: 'Erfasst',   key: 'erfassungsdatum', render: r => fmtDate(r.erfassungsdatum) },
+                        { label: 'Letzte Änd.', key: 'dateModified', render: r => {
+                            if (!r.dateModified) return '—';
+                            const days = (Date.now() - new Date(r.dateModified)) / 86400000;
+                            return fmtDays(days);
+                        }},
+                    ];
+                    return { title: `Projekte ohne Checklisten (${rows.length})`, html: buildTable(cols, rows) };
+                },
+                kunde: () => {
+                    const rows = allData.filter(r => r.kundeWartet === true);
+                    const cols = [
+                        { label: 'Nr.',       key: 'vorgangsNr',  render: r => `<span class="popup-nr">#${r.vorgangsNr}</span>` },
+                        { label: 'Titel',     key: 'titel' },
+                        { label: 'Firma',     key: 'firma' },
+                        { label: 'Bearbeiter',key: 'bearbeiter', render: r => r.bearbeiter || '<span style="color:#64748b">—</span>' },
+                        { label: 'Status',    key: 'statusName', render: r => `<span class="popup-badge status">${r.statusName}</span>` },
+                        { label: 'Aktionen', key: 'aktionenGesamt', render: r => {
+                            const open = r.aktionen1 ?? 0, act = r.aktionen2 ?? 0, done = r.aktionen3 ?? 0;
+                            return `<span style="font-size:.75rem">${done} erl. / ${act} akt. / ${open} off.</span>`;
+                        }},
+                        { label: 'Letzte Änd.', key: 'dateModified', render: r => {
+                            if (!r.dateModified) return '—';
+                            const days = (Date.now() - new Date(r.dateModified)) / 86400000;
+                            return fmtDays(days);
+                        }},
+                    ];
+                    return { title: `Projekte wo wir auf den Kunden warten (${rows.length})`, html: buildTable(cols, rows) };
+                },
+                altlasten: () => {
+                    const now = Date.now();
+                    const rows = allData
+                        .map(r => ({ ...r, _days: r.dateModified ? (now - new Date(r.dateModified)) / 86400000 : 9999 }))
+                        .filter(r => r._days > 30)
+                        .sort((a, b) => b._days - a._days);
+                    const cols = [
+                        { label: 'Nr.',       key: 'vorgangsNr',  render: r => `<span class="popup-nr">#${r.vorgangsNr}</span>` },
+                        { label: 'Titel',     key: 'titel' },
+                        { label: 'Firma',     key: 'firma' },
+                        { label: 'Bearbeiter',key: 'bearbeiter', render: r => r.bearbeiter || '<span style="color:#64748b">—</span>' },
+                        { label: 'Status',    key: 'statusName', render: r => `<span class="popup-badge status">${r.statusName}</span>` },
+                        { label: 'Erfasst',   key: 'erfassungsdatum', render: r => fmtDate(r.erfassungsdatum) },
+                        { label: 'Nicht geändert seit', key: '_days', render: r => fmtDays(r._days) },
+                        { label: 'Aktionen', key: 'aktionenGesamt', render: r => {
+                            const open = r.aktionen1 ?? 0, act = r.aktionen2 ?? 0, done = r.aktionen3 ?? 0;
+                            return `<span style="font-size:.75rem">${done} erl. / ${act} akt. / ${open} off.</span>`;
+                        }},
+                    ];
+                    return { title: `Altlasten > 30 Tage (${rows.length})`, html: buildTable(cols, rows) };
+                },
+            };
+
+            function openPopup(type) {
+                const builder = popupBuilders[type];
+                if (!builder) return;
+                const { title, html } = builder();
+                modalTitle.textContent = title;
+                modalBody.innerHTML    = html;
+                modal.style.display    = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closePopup() {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+
+            document.querySelectorAll('.kpi-card.kpi-clickable[data-popup]').forEach(card => {
+                card.addEventListener('click', () => openPopup(card.dataset.popup));
+            });
+
+            // Aktive Vorgänge KPI → aktiviert den Filter-Chip "Alle"
+            const totalCard = document.getElementById('kpiTotalCard');
+            if (totalCard) {
+                totalCard.addEventListener('click', () => {
+                    const alleChip = document.querySelector('.chip[data-filter="alle"]');
+                    if (alleChip) {
+                        document.querySelectorAll('.chip[data-filter]').forEach(x => x.classList.remove('active'));
+                        alleChip.classList.add('active');
+                        activeFilter = 'alle';
+                        applyFilter();
+                    }
+                    document.querySelector('.grid-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
+
+            // Neu / Unbearbeitet KPI → aktiviert den Filter-Chip "Neu / Offen"
+            const neuCard = document.getElementById('kpiNeuCard');
+            if (neuCard) {
+                neuCard.addEventListener('click', () => {
+                    const neuChip = document.querySelector('.chip[data-filter="neu"]');
+                    if (neuChip) {
+                        document.querySelectorAll('.chip[data-filter]').forEach(x => x.classList.remove('active'));
+                        neuChip.classList.add('active');
+                        activeFilter = 'neu';
+                        applyFilter();
+                    }
+                    document.querySelector('.grid-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
+
+            modalClose.addEventListener('click', closePopup);
+            modal.addEventListener('click', e => { if (e.target === modal) closePopup(); });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopup(); });
+        });
+    </script>
+}

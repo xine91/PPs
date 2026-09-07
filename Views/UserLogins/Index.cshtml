@@ -1,0 +1,583 @@
+?@using topfact.Pulse.Models
+@model UserLoginViewModel
+
+@{
+    ViewData["Title"] = "User Logins";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-theme-quartz.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/ag-grid-community.min.js"></script>
+
+    <style>
+        :root {
+            --bg-page: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #0f1e33;
+            --border: #2a3a55;
+            --border-subtle: #334155;
+            --text-main: #f0f6ff;
+            --text-muted: #6b82a8;
+            --accent: #338562;
+            --accent-hover: #3fa876;
+            --accent-glow: rgba(51, 133, 98, 0.25);
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-main);
+        }
+
+        /* -- KPI Cards (wie Geplante Leistungen) ---------- */
+        .stat-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--kpi-color, #475569);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .stat-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            margin-bottom: 0.35rem;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-sub {
+            font-size: 0.72rem;
+            color: #475569;
+            margin-top: 0.3rem;
+        }
+
+        /* -- Filter Shell --------------------------------- */
+        .filter-shell {
+            background: #1a2640;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px 24px 22px;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .filter-shell::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(51,133,98,0.5), transparent);
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 130px;
+        }
+
+        .filter-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .filter-label svg { opacity: 0.7; flex-shrink: 0; }
+
+        .filter-select {
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            color: var(--text-main);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 9px 32px 9px 12px;
+            width: 100%;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b82a8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .filter-select option { background: #1a2640; }
+
+        /* Segmented time control */
+        .time-segments {
+            display: flex;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .time-seg {
+            flex: 1;
+            text-align: center;
+            padding: 7px 4px;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.18s ease;
+            white-space: nowrap;
+            user-select: none;
+            border: none;
+            background: transparent;
+        }
+        .time-seg:hover { color: var(--text-main); background: rgba(255,255,255,0.04); }
+        .time-seg.active {
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .filter-divider {
+            width: 1px;
+            height: 38px;
+            background: var(--border);
+            align-self: flex-end;
+            margin-bottom: 1px;
+            flex-shrink: 0;
+        }
+
+        .date-pair {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .date-input-wrap { position: relative; flex: 1; }
+        .date-tag {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            pointer-events: none;
+            text-transform: uppercase;
+            z-index: 1;
+        }
+        .filter-date {
+            appearance: none;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            color: var(--text-main);
+            font-size: 13px;
+            padding: 9px 10px 9px 34px;
+            width: 100%;
+            color-scheme: dark;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .filter-date:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .date-arrow { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+
+        .btn-apply {
+            background: var(--accent);
+            border: none;
+            border-radius: 9px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 10px 20px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.18s ease;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            letter-spacing: 0.01em;
+            align-self: flex-end;
+        }
+        .btn-apply:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+        .btn-apply:active { transform: translateY(0); }
+        .btn-apply svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+        /* -- Content Cards -------------------------------- */
+        .content-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .content-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin: 0;
+        }
+
+        /* Schnellsuche */
+        .search-input {
+            appearance: none;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 13px;
+            padding: 7px 12px 7px 34px;
+            width: 240px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b82a8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: 10px center;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .search-input::placeholder { color: var(--text-muted); }
+
+        /* -- AG Grid -------------------------------------- */
+        .ag-theme-quartz {
+            height: 500px;
+            width: 100%;
+        }
+        [data-pulse-theme="dark"] .ag-theme-quartz {
+            --ag-background-color: #1e293b;
+            --ag-header-background-color: #0f172a;
+            --ag-border-color: #334155;
+        }
+
+        /* -- Chart ---------------------------------------- */
+        .chart-container {
+            height: 320px;
+            position: relative;
+        }
+    </style>
+}
+
+@* -- Filter Form -------------------------------------------- *@
+<form method="post" id="filterForm">
+    <input type="hidden" name="selectedDays" id="selectedDaysInput" value="@Model.SelectedDays" />
+
+    <div class="filter-shell">
+        <div class="filter-row">
+
+            <div class="filter-group">
+                <label class="filter-label" for="tenantSelect">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                    Tenant
+                </label>
+                <select id="tenantSelect" name="selectedCustomer" class="filter-select">
+                    <option value="">Alle Tenants</option>
+                    @foreach (var c in Model.AvailableCustomers)
+                    {
+                        <option value="@c" selected="@(c == Model.SelectedCustomer)">@c</option>
+                    }
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label" for="appSelect">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <path d="M8 21h8M12 17v4"/>
+                    </svg>
+                    Anwendung
+                </label>
+                <select id="appSelect" name="selectedAppName" class="filter-select">
+                    <option value="">Alle Anwendungen</option>
+                    @foreach (var a in Model.AvailableAppNames)
+                    {
+                        <option value="@a" selected="@(a == Model.SelectedAppName)">@a</option>
+                    }
+                </select>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <div class="filter-group" style="flex: 1.5; min-width: 210px;">
+                <span class="filter-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                    Zeitraum
+                </span>
+                <div class="time-segments" id="timeSegs">
+                    <button type="button" class="time-seg @(Model.SelectedDays == 7   ? "active" : "")" data-val="7">7 Tage</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 30  ? "active" : "")" data-val="30">1 Mon.</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 90  ? "active" : "")" data-val="90">3 Mon.</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 180 ? "active" : "")" data-val="180">6 Mon.</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 365 ? "active" : "")" data-val="365">1 Jahr</button>
+                </div>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <div class="filter-group" style="flex: 1.8; min-width: 230px;">
+                <span class="filter-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/>
+                        <path d="M16 2v4M8 2v4M3 10h18"/>
+                    </svg>
+                    Benutzerdefiniert
+                </span>
+                <div class="date-pair">
+                    <div class="date-input-wrap">
+                        <span class="date-tag">von</span>
+                        <input type="date" id="dateFrom" name="dateFrom" class="filter-date"
+                               value="@Model.DateFrom?.ToString("yyyy-MM-dd")"
+                               max="@DateTime.Today.ToString("yyyy-MM-dd")">
+                    </div>
+                    <span class="date-arrow">?</span>
+                    <div class="date-input-wrap">
+                        <span class="date-tag">bis</span>
+                        <input type="date" id="dateTo" name="dateTo" class="filter-date"
+                               value="@Model.DateTo?.ToString("yyyy-MM-dd")"
+                               max="@DateTime.Today.ToString("yyyy-MM-dd")">
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-apply">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+                    <polyline points="22 3 21 7 17 6"/>
+                </svg>
+                Laden
+            </button>
+
+        </div>
+    </div>
+</form>
+
+<script>
+    (function () {
+        var segs = document.querySelectorAll('.time-seg');
+        var hiddenInput = document.getElementById('selectedDaysInput');
+        var dateFrom = document.getElementById('dateFrom');
+        var dateTo = document.getElementById('dateTo');
+
+        segs.forEach(function (seg) {
+            seg.addEventListener('click', function () {
+                segs.forEach(function (s) { s.classList.remove('active'); });
+                seg.classList.add('active');
+                hiddenInput.value = seg.dataset.val;
+                dateFrom.value = '';
+                dateTo.value = '';
+            });
+        });
+
+        [dateFrom, dateTo].forEach(function (input) {
+            input.addEventListener('change', function () {
+                if (input.value) {
+                    segs.forEach(function (s) { s.classList.remove('active'); });
+                    hiddenInput.value = '0';
+                }
+            });
+        });
+    })();
+</script>
+
+@* -- Stat Cards --------------------------------------------- *@
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card" style="--kpi-color:#6366f1;">
+            <span class="stat-label">Logins Insgesamt</span>
+            <span class="stat-value">@Model.TotalLogins.ToString("N0")</span>
+            <span class="stat-sub">Alle Einträge im Zeitraum</span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card" style="--kpi-color:#22c55e;">
+            <span class="stat-label">Logins Heute</span>
+            <span class="stat-value">@Model.LoginsToday.ToString("N0")</span>
+            <span class="stat-sub">Aktuelle Tagesaktivität</span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card" style="--kpi-color:#3b82f6;">
+            <span class="stat-label">Eindeutige User</span>
+            <span class="stat-value">@Model.UniqueUsers.ToString("N0")</span>
+            <span class="stat-sub">Distinct Benutzer</span>
+        </div>
+    </div>
+</div>
+
+@* -- Login Grid --------------------------------------------- *@
+<div class="content-card">
+    <div class="content-card-header">
+        <input type="text"
+               id="grid-search"
+               class="search-input"
+               placeholder="Benutzer, PC, Tenant suchen …">
+        <span class="card-title">Login Details</span>
+    </div>
+    <div id="loginGrid" class="ag-theme-quartz"></div>
+</div>
+
+@* -- Chart -------------------------------------------------- *@
+<div class="content-card">
+    <div class="content-card-header">
+        <span class="card-title">Login Aktivität — Zeitverlauf</span>
+    </div>
+    <div class="chart-container">
+        <canvas id="loginChart"></canvas>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const rowData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Logins));
+
+        const columnDefs = [
+            {
+                field: "DateCreated",
+                headerName: "Zeitpunkt",
+                sort: 'desc',
+                flex: 1.2,
+                valueFormatter: p => p.value ? new Date(p.value).toLocaleString('de-DE') : 'Unbekannt'
+            },
+            { field: "Customer",   headerName: "Tenant",     filter: true, flex: 1.5 },
+            { field: "Username",   headerName: "Benutzer",   flex: 1 },
+            { field: "AppName",    headerName: "Anwendung",  flex: 1.2 },
+            { field: "AppVersion", headerName: "Version",    flex: 0.8 },
+            { field: "Clientname", headerName: "Client-PC",  flex: 1 }
+        ];
+
+        const gridOptions = {
+            rowData: rowData,
+            columnDefs: columnDefs,
+            defaultColDef: { resizable: true, sortable: true, filter: true },
+            pagination: true,
+            paginationPageSize: 20,
+            onGridReady: (params) => {
+                window.gridApi = params.api;
+                params.api.sizeColumnsToFit();
+            }
+        };
+
+        function setupChart() {
+            const ctx = document.getElementById('loginChart').getContext('2d');
+
+            const counts = {};
+            rowData.forEach(log => {
+                if (log.DateCreated) {
+                    const date = log.DateCreated.split('T')[0];
+                    counts[date] = (counts[date] || 0) + 1;
+                }
+            });
+
+            const labels = Object.keys(counts).sort();
+            const dataValues = labels.map(l => counts[l]);
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Anzahl Logins',
+                        data: dataValues,
+                        borderColor: '#338562',
+                        backgroundColor: 'rgba(51, 133, 98, 0.08)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#338562',
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#1e2d42' },
+                            ticks: { color: '#6b82a8', stepSize: 1 }
+                        },
+                        x: {
+                            grid: { color: '#1e2d42' },
+                            ticks: { color: '#6b82a8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            agGrid.createGrid(document.querySelector("#loginGrid"), gridOptions);
+            setupChart();
+
+            document.getElementById('grid-search').addEventListener('input', (e) => {
+                if (window.gridApi) window.gridApi.setGridOption('quickFilterText', e.target.value);
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.gridApi) window.gridApi.sizeColumnsToFit();
+        });
+    </script>
+}

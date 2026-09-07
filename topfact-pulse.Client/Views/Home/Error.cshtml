@@ -1,0 +1,155 @@
+@using Microsoft.AspNetCore.Mvc.ModelBinding
+@{
+    ViewData["Title"] = "Fehler";
+    Layout = null;
+    var exception = ViewData["Exception"] as Exception;
+    var isDevelopment = Context.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>().IsDevelopment();
+}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <title>Fehler – topfact Pulse</title>
+    <link rel="stylesheet" href="~/lib/twitter-bootstrap/css/bootstrap.min.css" />
+    <style>
+        .error-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .error-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        .error-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .error-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        .error-message {
+            color: #64748b;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .error-details {
+            background: #f8fafc;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            display: none;
+        }
+        .error-details.show {
+            display: block;
+        }
+        .error-details pre {
+            margin: 0;
+            overflow-x: auto;
+            color: #1e293b;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+        .btn-details {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .btn-details:hover {
+            background: #2563eb;
+        }
+        .error-actions {
+            margin-top: 30px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-home, .btn-back {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-home {
+            background: #10b981;
+            color: white;
+        }
+        .btn-home:hover {
+            background: #059669;
+        }
+        .btn-back {
+            background: #e5e7eb;
+            color: #1e293b;
+        }
+        .btn-back:hover {
+            background: #d1d5db;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-card">
+            <div class="error-icon">⚠️</div>
+            <h1 class="error-title">Ein Fehler ist aufgetreten</h1>
+
+            @{
+                var statusCode = ViewBag.statusCode ?? "500";
+                var requestId = Context.TraceIdentifier ?? "Unbekannt";
+            }
+
+            <p class="error-message">
+                <strong>Status Code:</strong> @statusCode<br>
+                <strong>Request ID:</strong> @requestId
+            </p>
+
+            @if (isDevelopment && !string.IsNullOrEmpty(ViewBag.Exception?.ToString()))
+            {
+                <button class="btn-details" onclick="document.getElementById('errorDetails').classList.toggle('show')">
+                    ➜ Exception Details anzeigen
+                </button>
+                <div id="errorDetails" class="error-details">
+                    <pre>@ViewBag.Exception?.ToString()</pre>
+                </div>
+            }
+
+            <div class="error-actions">
+                <a href="/" class="btn-home">🏠 Zur Startseite</a>
+                <button class="btn-back" onclick="window.history.back()">← Zurück</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Versuche Exception Details aus dem ViewBag anzuzeigen
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Error Status:', @statusCode);
+            console.log('Request ID:', '@requestId');
+            @if (isDevelopment && !string.IsNullOrEmpty(ViewBag.Exception?.ToString()))
+            {
+                <text>
+                console.error('Exception Details:');
+                console.error(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.Exception?.ToString())));
+                </text>
+            }
+        });
+    </script>
+</body>
+</html>

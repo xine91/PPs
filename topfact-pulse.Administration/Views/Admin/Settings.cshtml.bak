@@ -1,0 +1,903 @@
+@model topfact.Pulse.Models.NavigationSettingsViewModel
+@{
+    ViewData["Title"] = "Navigation verwalten";
+}
+
+@section Styles {
+    <style>
+        /* Light Mode (Default) */
+        :root{
+          --bg:#f5f4f0;
+          --surface:#ffffff;
+          --surface2:#f0ede8;
+          --surface3:#e8e4de;
+          --border:#ddd9d2;
+          --border2:#c8c3bb;
+          --text:#1a1916;
+          --text2:#6b6760;
+          --text3:#a8a49e;
+          --accent:#2a5cff;
+          --accent-bg:rgba(42,92,255,0.07);
+          --accent-border:rgba(42,92,255,0.22);
+          --green:#1a7f5a;
+          --green-bg:rgba(26,127,90,0.08);
+          --green-border:rgba(26,127,90,0.22);
+          --red:#c0392b;
+          --red-bg:rgba(192,57,43,0.07);
+          --red-border:rgba(192,57,43,0.2);
+          --amber:#9a6500;
+          --amber-bg:rgba(154,101,0,0.08);
+          --purple:#5b3fa6;
+          --purple-bg:rgba(91,63,166,0.08);
+          --r:8px;--rs:5px;
+        }
+
+        /* Dark Mode */
+        [data-pulse-theme="dark"]{
+          --bg:#0f1117;
+          --surface:#1c1f26;
+          --surface2:#2d333b;
+          --surface3:#3d444d;
+          --border:#30363d;
+          --border2:#444c56;
+          --text:#e6edf3;
+          --text2:#8b949e;
+          --text3:#6e7681;
+          --accent:#58a6ff;
+          --accent-bg:rgba(88,166,255,0.1);
+          --accent-border:rgba(88,166,255,0.3);
+          --green:#3fb950;
+          --green-bg:rgba(63,185,80,0.1);
+          --green-border:rgba(63,185,80,0.3);
+          --red:#f85149;
+          --red-bg:rgba(248,81,73,0.1);
+          --red-border:rgba(248,81,73,0.3);
+          --amber:#d29922;
+          --amber-bg:rgba(210,153,34,0.1);
+          --purple:#bc8ef9;
+          --purple-bg:rgba(188,142,249,0.1);
+        }
+
+        /* buttons */
+        .btn{font-family:'Instrument Sans',sans-serif;font-size:12.5px;font-weight:500;padding:6px 14px;border-radius:var(--rs);border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;transition:all .13s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+        .btn:hover{background:var(--surface2)}
+        .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+        .btn-primary:hover{background:var(--accent);opacity:0.9}
+        .btn-green{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+        .btn-green:hover{background:var(--green-bg);opacity:1.2;filter:brightness(1.1)}
+        .btn-red{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
+        .btn-red:hover{background:var(--red-bg);opacity:1.2;filter:brightness(1.1)}
+        .btn-ghost{border-color:transparent;background:transparent;color:var(--text2)}
+        .btn-ghost:hover{background:var(--surface2);border-color:var(--border)}
+        .btn-icon{padding:6px 8px;border-color:transparent;background:transparent;color:var(--text3)}
+        .btn-icon:hover{background:var(--surface2);color:var(--text);border-color:var(--border)}
+
+        /* pills */
+        .pill{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;padding:2px 8px;border-radius:999px;letter-spacing:.03em;white-space:nowrap}
+        .pill-bereich{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bg)}
+        .pill-gruppe{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-bg)}
+        .pill-kategorie{background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border)}
+        .pill-on{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+        .pill-off{background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+
+        /* stats bar */
+        .stats{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+        .stat-chip{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 12px;background:var(--surface);border:1px solid var(--border);border-radius:999px;color:var(--text2)}
+        .stat-chip strong{color:var(--text);font-weight:500}
+
+        /* list */
+        .ilist{display:flex;flex-direction:column;gap:3px;margin-bottom:20px}
+
+        .ie{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .15s}
+        .ie:hover{border-color:var(--border2)}
+        .ie.is-open{border-color:var(--accent-border)}
+
+        /* indent levels */
+        .ie.lvl-1{margin-left:24px}
+        .ie.lvl-2{margin-left:48px}
+        .ie.lvl-1 .ie-row{padding-left:12px}
+        .ie.lvl-2 .ie-row{padding-left:12px}
+
+        /* connector lines */
+        .lvl-1{position:relative}
+        .lvl-1::before{content:'';position:absolute;left:-13px;top:22px;width:12px;height:1px;background:var(--border2)}
+        .lvl-2{position:relative}
+        .lvl-2::before{content:'';position:absolute;left:-13px;top:22px;width:12px;height:1px;background:var(--border2)}
+
+        /* row */
+        .ie-row{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;user-select:none}
+
+        .ie-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:all .13s}
+        .ie-icon-bereich{background:var(--amber-bg)}
+        .ie-icon-gruppe{background:var(--purple-bg)}
+        .ie-icon-kategorie{background:var(--accent-bg)}
+
+        .ie-text{flex:1;min-width:0}
+        .ie-name{font-size:13.5px;font-weight:500;color:var(--text);margin-bottom:1px}
+        .ie-meta{font-size:11.5px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+
+        .ie-badges{display:flex;align-items:center;gap:6px;flex-shrink:0}
+
+        .ie-actions{display:flex;gap:3px;flex-shrink:0;opacity:0;transition:opacity .13s}
+        .ie:hover .ie-actions,.ie.is-open .ie-actions{opacity:1}
+
+        .ie-chevron{color:var(--text3);font-size:12px;transition:transform .2s;flex-shrink:0}
+        .ie.is-open .ie-chevron{transform:rotate(180deg)}
+
+        /* editor panel */
+        .ie-editor{display:none;border-top:1px solid var(--border);background:var(--surface2);padding:16px 16px 14px;animation:slideDown .18s ease}
+        .ie-editor.show{display:block}
+
+        @@keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+        .ed-title{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:12px}
+
+        .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+        .fld label{font-size:11.5px;color:var(--text2);font-weight:500}
+        .fld input,.fld select,.fld textarea{font-family:'Instrument Sans',sans-serif;font-size:13px;background:var(--surface);color:var(--text);border:1px solid var(--border2);border-radius:var(--rs);padding:7px 10px;outline:none;transition:border-color .13s;width:100%}
+        .fld textarea{resize:vertical;min-height:100px;font-family:'JetBrains Mono',monospace;font-size:12px}
+        .fld input:focus,.fld select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+        select option{background:var(--surface);color:var(--text)}
+
+        .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+        .span2{grid-column:1/-1}
+
+        .checks{display:flex;gap:16px;flex-wrap:wrap;padding:2px 0}
+        .check-label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);cursor:pointer}
+        .check-label input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
+
+        .ed-actions{display:flex;gap:7px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap}
+
+        /* add-new row */
+        .add-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px dashed var(--border2);border-radius:var(--r);background:transparent;color:var(--text3);cursor:pointer;font-family:'Instrument Sans',sans-serif;font-size:13px;transition:all .13s;width:100%}
+        .add-row:hover{background:var(--surface);border-color:var(--accent-border);color:var(--accent)}
+        .add-row.lvl-1{margin-left:24px}
+        .add-row.lvl-2{margin-left:48px}
+
+        /* new-item inline form */
+        .new-form{background:var(--surface);border:1px solid var(--accent-border);border-radius:var(--r);padding:16px;margin-bottom:3px;animation:slideDown .18s ease}
+        .new-form.lvl-1{margin-left:24px}
+        .new-form.lvl-2{margin-left:48px}
+
+        /* modal confirm */
+        .delete-confirm{display:none;padding:12px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--rs);margin-bottom:8px;animation:slideDown .15s ease}
+        .delete-confirm.show{display:block}
+        .delete-confirm-text{font-size:12px;color:var(--text);margin-bottom:8px}
+        .delete-confirm-actions{display:flex;gap:6px}
+        .delete-confirm-actions .btn{padding:5px 12px;font-size:11px}
+
+        /* toast */
+        .toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:var(--bg);font-size:13px;padding:10px 18px;border-radius:var(--r);z-index:300;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+        .toast.show{opacity:1;transform:translateY(0)}
+    </style>
+}
+
+<div class="container-fluid mt-4">
+    <h1 class="mb-4" style="color:var(--text);font-size:28px;font-weight:600">@ViewData["Title"]</h1>
+
+    <!-- CSRF Token -->
+    @Html.AntiForgeryToken()
+
+    <div class="stats" id="stats-bar"></div>
+    <div id="root-list"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<button class="btn btn-primary" style="position:fixed;top:120px;right:24px;z-index:100" onclick="showNewForm('bereich',null)">+ Bereich</button>
+
+@section Scripts {
+    <script>
+// ── Initialize Theme ──
+(function initializeTheme() {
+  const html = document.documentElement;
+  const savedTheme = localStorage.getItem('pulse-theme');
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = savedTheme || (systemDark ? 'dark' : 'light');
+  html.setAttribute('data-pulse-theme', theme);
+})();
+
+// ── Initial Data from Model ──
+let data = {
+  bereiche: [@{
+    var bereicheJson = string.Empty;
+    var bereiche = Model.Bereiche?.ToList() ?? new List<topfact.Pulse.Models.PulseBereich>();
+    foreach(var b in bereiche) {
+        var name = (b.DisplayName ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
+        var code = (b.Code ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
+        var role = (b.RequiredRole ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
+        bereicheJson += "{id:" + b.BereichID + ",name:'" + name + "',code:'" + code + "',sortOrder:" + b.SortOrder + ",isActive:" + (b.IsActive ? "true" : "false") + ",protected:" + ((b.Code == "Technik" || b.Code == "Organisation" || b.DisplayName == "Technik" || b.DisplayName == "Organisation") ? "true" : "false") + ",requiredRole:'" + role + "'},";
+    }
+    @Html.Raw(bereicheJson.TrimEnd(','))
+  }],
+
+  gruppen: [@{
+    var gruppenJson = string.Empty;
+    var gruppen = Model.Gruppen?.ToList() ?? new List<topfact.Pulse.Models.PulseGruppe>();
+    foreach(var g in gruppen) {
+        var name = (g.DisplayName ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
+        gruppenJson += "{id:" + g.GruppeID + ",bereichId:" + g.BereichID + ",name:'" + name + "',sortOrder:" + g.SortOrder + ",isActive:" + (g.IsActive ? "true" : "false") + ",isCollapsible:" + (g.IsCollapsible ? "true" : "false") + ",isExpandedDefault:" + (g.IsExpandedDefault ? "true" : "false") + "},";
+    }
+    @Html.Raw(gruppenJson.TrimEnd(','))
+  }],
+
+  kategorien: [@{
+    var kategorienJson = string.Empty;
+    var kategorien = Model.Kategorien?.ToList() ?? new List<topfact.Pulse.Models.PulseKategorie>();
+    foreach(var k in kategorien) {
+        var title = (k.Title ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
+        var sql = (k.Sql_query ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
+        kategorienJson += "{id:" + k.KategorieID + ",gruppeId:" + k.GruppeID + ",title:'" + title + "',sortOrder:" + k.SortOrder + ",sql_query:'" + sql + "'},";
+    }
+    @Html.Raw(kategorienJson.TrimEnd(','))
+  }]
+};
+
+let openEditors = new Set();
+let nextId = 1000;
+let connectors = []; // Speichert die verfügbaren Connectoren
+
+// ── Render ──
+function render() {
+  renderStats();
+  renderList();
+}
+
+async function loadConnectors() {
+  try {
+    const response = await fetch('/admin/connectors');
+    if (response.ok) {
+      connectors = await response.json();
+      console.log('Connectoren geladen:', connectors);
+    }
+  } catch (error) {
+    console.error('Fehler beim Laden der Connectoren:', error);
+  }
+}
+
+function renderStats() {
+  const sb = document.getElementById('stats-bar');
+  const activeB = data.bereiche.filter(b=>b.isActive).length;
+  const activeG = data.gruppen.filter(g=>g.isActive).length;
+  sb.innerHTML = `
+    <div class="stat-chip"><strong>${data.bereiche.length}</strong> Bereiche (${activeB} aktiv)</div>
+    <div class="stat-chip"><strong>${data.gruppen.length}</strong> Gruppen (${activeG} aktiv)</div>
+    <div class="stat-chip"><strong>${data.kategorien.length}</strong> Kategorien</div>
+  `;
+}
+
+function renderList() {
+  const root = document.getElementById('root-list');
+  let html = '<div class="ilist">';
+
+  const sortedBereiche = [...data.bereiche].sort((a,b)=>a.sortOrder-b.sortOrder);
+  sortedBereiche.forEach(bereich => {
+    html += renderBereich(bereich);
+    const gruppen = data.gruppen.filter(g=>g.bereichId===bereich.id).sort((a,b)=>a.sortOrder-b.sortOrder);
+    gruppen.forEach(gruppe => {
+      html += renderGruppe(gruppe);
+      const kategorien = data.kategorien.filter(k=>k.gruppeId===gruppe.id).sort((a,b)=>a.sortOrder-b.sortOrder);
+      kategorien.forEach(kat => { html += renderKategorie(kat); });
+      html += `<button class="add-row lvl-2" onclick="showNewForm('kategorie',${gruppe.id})">+ Neue Kategorie in "${gruppe.name}"</button>`;
+    });
+    html += `<button class="add-row lvl-1" onclick="showNewForm('gruppe',${bereich.id})">+ Neue Gruppe in "${bereich.name}"</button>`;
+  });
+
+  html += '</div>';
+  root.innerHTML = html;
+
+  // re-open editors
+  openEditors.forEach(key => {
+    const el = document.getElementById('ed-'+key);
+    const entry = document.getElementById('ie-'+key);
+    if(el){ el.classList.add('show'); }
+    if(entry){ entry.classList.add('is-open'); }
+  });
+}
+
+function renderBereich(b) {
+  const edOpen = openEditors.has('bereich-'+b.id);
+  return `
+<div class="ie${edOpen?' is-open':''}" id="ie-bereich-${b.id}">
+  <div class="ie-row" onclick="toggleEditor('bereich-${b.id}')">
+    <div class="ie-icon ie-icon-bereich">⬡</div>
+    <div class="ie-text">
+      <div class="ie-name">${escapeHtml(b.name)}</div>
+      <div class="ie-meta">Bereich · Code: ${escapeHtml(b.code)} · Sort: ${b.sortOrder}</div>
+    </div>
+    <div class="ie-badges">
+      <span class="pill pill-bereich">Bereich</span>
+      ${b.protected?'<span class="pill" style="background:rgba(154,101,0,0.06);color:var(--amber);border-color:rgba(154,101,0,0.15);font-size:9px">GESCHÜTZT</span>':''}
+      <span class="pill ${b.isActive?'pill-on':'pill-off'}">${b.isActive?'Aktiv':'Inaktiv'}</span>
+    </div>
+      <div class="ie-actions">
+      <button class="btn-icon btn" onclick="event.stopPropagation();toggleEditor('bereich-${b.id}')" title="Bearbeiten">✎</button>
+      ${!b.protected?`<button class="btn-icon btn" data-type="bereich" data-id="${b.id}" data-name="${escapeHtml(b.name)}" title="Löschen" style="color:var(--red)" onclick="event.stopPropagation();showDeleteConfirm('bereich-${b.id}')">✕</button>`:''}
+    </div>
+    <span class="ie-chevron">▾</span>
+  </div>
+  <div class="ie-editor${edOpen?' show':''}" id="ed-bereich-${b.id}">
+    <div class="ed-title">Bereich bearbeiten</div>
+    <form onsubmit="submitBereich(event, ${b.id})">
+      <div class="g3">
+        <div class="fld span2"><label>Name</label><input value="${escapeHtml(b.name)}" name="displayName" required/></div>
+        <div class="fld"><label>Sortierung</label><input type="number" value="${b.sortOrder}" name="sortOrder"/></div>
+      </div>
+      <div class="fld"><label>Erforderliche Rolle (optional)</label><input value="${escapeHtml(b.requiredRole || '')}" name="requiredRole" placeholder="z.B. Admin, Manager"/></div>
+      <div class="checks">
+        <label class="check-label"><input type="checkbox" name="isActive" ${b.isActive?'checked':''}/> Aktiv</label>
+      </div>
+      <div class="ed-actions">
+        <button type="submit" class="btn btn-green">✓ Speichern</button>
+        ${!b.protected?`<button type="button" class="btn btn-red" onclick="event.stopPropagation();showDeleteConfirm('bereich-${b.id}')">✕ Löschen</button>`:''}
+        <button type="button" class="btn btn-ghost" onclick="toggleEditor('bereich-${b.id}')">Abbrechen</button>
+      </div>
+      <div class="delete-confirm" id="dc-bereich-${b.id}" style="margin-top:12px">
+        <div class="delete-confirm-text">
+          <strong>Bereich löschen?</strong><br>
+          "${escapeHtml(b.name)}" wird permanent entfernt. Diese Aktion kann nicht rückgängig gemacht werden.
+        </div>
+        <div class="delete-confirm-actions">
+          <button type="button" class="btn btn-red" onclick="deleteItem('bereich-${b.id}')">Ja, löschen</button>
+          <button type="button" class="btn btn-ghost" onclick="hideDeleteConfirm('bereich-${b.id}')">Abbrechen</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>`;
+}
+
+function renderGruppe(g) {
+  const bereich = data.bereiche.find(b=>b.id===g.bereichId);
+  const edOpen = openEditors.has('gruppe-'+g.id);
+  return `
+<div class="ie lvl-1${edOpen?' is-open':''}" id="ie-gruppe-${g.id}">
+  <div class="ie-row" onclick="toggleEditor('gruppe-${g.id}')">
+    <div class="ie-icon ie-icon-gruppe">◫</div>
+    <div class="ie-text">
+      <div class="ie-name">${escapeHtml(g.name)}</div>
+      <div class="ie-meta">Gruppe · ${bereich?escapeHtml(bereich.name):'?'} · Sort: ${g.sortOrder}</div>
+    </div>
+    <div class="ie-badges">
+      <span class="pill pill-gruppe">Gruppe</span>
+      ${g.isCollapsible?'<span class="pill" style="background:var(--surface2);color:var(--text3);border:1px solid var(--border);font-size:9px">Einklappbar</span>':''}
+      <span class="pill ${g.isActive?'pill-on':'pill-off'}">${g.isActive?'Aktiv':'Inaktiv'}</span>
+    </div>
+    <div class="ie-actions">
+      <button class="btn-icon btn" onclick="event.stopPropagation();toggleEditor('gruppe-${g.id}')" title="Bearbeiten">✎</button>
+      <button class="btn-icon btn" onclick="event.stopPropagation();showDeleteConfirm('gruppe-${g.id}')" title="Löschen" style="color:var(--red)">✕</button>
+    </div>
+    <span class="ie-chevron">▾</span>
+  </div>
+  <div class="ie-editor${edOpen?' show':''}" id="ed-gruppe-${g.id}">
+    <div class="ed-title">Gruppe bearbeiten</div>
+    <form onsubmit="submitGruppe(event, ${g.id})">
+      <div class="g3">
+        <div class="fld span2"><label>Name</label><input value="${escapeHtml(g.name)}" name="displayName" required/></div>
+        <div class="fld"><label>Sortierung</label><input type="number" value="${g.sortOrder}" name="sortOrder"/></div>
+      </div>
+      <div class="fld"><label>Bereich</label>
+        <select name="bereichId" required>
+          ${data.bereiche.map(b=>`<option value="${b.id}"${b.id===g.bereichId?' selected':''}>${escapeHtml(b.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="checks">
+        <label class="check-label"><input type="checkbox" name="isCollapsible" ${g.isCollapsible?'checked':''}/> Einklappbar</label>
+        <label class="check-label"><input type="checkbox" name="isExpandedDefault" ${g.isExpandedDefault?'checked':''}/> Standardmäßig geöffnet</label>
+        <label class="check-label"><input type="checkbox" name="isActive" ${g.isActive?'checked':''}/> Aktiv</label>
+      </div>
+      <div class="ed-actions">
+        <button type="submit" class="btn btn-green">✓ Speichern</button>
+        <button type="button" class="btn btn-red" onclick="event.stopPropagation();showDeleteConfirm('gruppe-${g.id}')">✕ Löschen</button>
+        <button type="button" class="btn btn-ghost" onclick="toggleEditor('gruppe-${g.id}')">Abbrechen</button>
+      </div>
+      <div class="delete-confirm" id="dc-gruppe-${g.id}" style="margin-top:12px">
+        <div class="delete-confirm-text">
+          <strong>Gruppe löschen?</strong><br>
+          "${escapeHtml(g.name)}" wird permanent entfernt. ${data.kategorien.filter(k=>k.gruppeId===g.id).length ? `Diese Gruppe enthält ${data.kategorien.filter(k=>k.gruppeId===g.id).length} Kategorie(n), die ebenfalls gelöscht werden.` : ''}
+        </div>
+        <div class="delete-confirm-actions">
+          <button type="button" class="btn btn-red" onclick="deleteItem('gruppe-${g.id}')">Ja, löschen</button>
+          <button type="button" class="btn btn-ghost" onclick="hideDeleteConfirm('gruppe-${g.id}')">Abbrechen</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>`;
+}
+
+function renderKategorie(k) {
+  const gruppe = data.gruppen.find(g=>g.id===k.gruppeId);
+  const bereich = gruppe ? data.bereiche.find(b=>b.id===gruppe.bereichId) : null;
+  const edOpen = openEditors.has('kategorie-'+k.id);
+  return `
+<div class="ie lvl-2${edOpen?' is-open':''}" id="ie-kategorie-${k.id}">
+  <div class="ie-row" onclick="toggleEditor('kategorie-${k.id}')">
+    <div class="ie-icon ie-icon-kategorie">◻</div>
+    <div class="ie-text">
+      <div class="ie-name">${escapeHtml(k.title)}</div>
+      <div class="ie-meta">Kategorie · ${bereich?escapeHtml(bereich.name):'?'} / ${gruppe?escapeHtml(gruppe.name):'?'} · Sort: ${k.sortOrder}</div>
+    </div>
+    <div class="ie-badges">
+      <span class="pill pill-kategorie">Kategorie</span>
+    </div>
+    <div class="ie-actions">
+      <button class="btn-icon btn" onclick="event.stopPropagation();toggleEditor('kategorie-${k.id}')" title="Bearbeiten">✎</button>
+      <button class="btn-icon btn" onclick="event.stopPropagation();showDeleteConfirm('kategorie-${k.id}')" title="Löschen" style="color:var(--red)">✕</button>
+    </div>
+    <span class="ie-chevron">▾</span>
+  </div>
+  <div class="ie-editor${edOpen?' show':''}" id="ed-kategorie-${k.id}">
+    <div class="ed-title">Kategorie bearbeiten</div>
+    <form onsubmit="submitKategorie(event, ${k.id})">
+      <div class="g2">
+        <div class="fld"><label>Titel</label><input value="${escapeHtml(k.title)}" name="title" required/></div>
+        <div class="fld"><label>Sortierung</label><input type="number" value="${k.sortOrder}" name="sortOrder"/></div>
+      </div>
+      <div class="fld"><label>Gruppe</label>
+        <select name="gruppeId" required>
+          ${data.gruppen.map(g=>{
+            const b=data.bereiche.find(bb=>bb.id===g.bereichId);
+            return `<option value="${g.id}"${g.id===k.gruppeId?' selected':''}>${b?escapeHtml(b.name)+' / ':''}${escapeHtml(g.name)}</option>`;
+          }).join('')}
+        </select>
+      </div>
+      <div class="fld"><label>Datenquelle (Connector)</label>
+        <select name="connectorId" id="connectorSelect-${k.id}">
+          <option value="">-- Keine Datenquelle --</option>
+          ${connectors.map(c => `<option value="${c.id}">${escapeHtml(c.bezeichnung || c.type)} (${escapeHtml(c.connectorType)})</option>`).join('')}
+        </select>
+      </div>
+      <div class="fld"><label>SQL-Query</label><textarea name="sql_query" placeholder="SELECT * FROM ...">${escapeHtml(k.sql_query || '')}</textarea></div>
+      <div class="ed-actions">
+        <button type="button" class="btn btn-primary" onclick="event.stopPropagation();executeSqlQuery('kategorie-${k.id}')">▶ Query ausführen</button>
+        <button type="submit" class="btn btn-green">✓ Speichern</button>
+        <button type="button" class="btn btn-red" onclick="event.stopPropagation();showDeleteConfirm('kategorie-${k.id}')">✕ Löschen</button>
+        <button type="button" class="btn btn-ghost" onclick="toggleEditor('kategorie-${k.id}')">Abbrechen</button>
+      </div>
+      <div class="delete-confirm" id="dc-kategorie-${k.id}" style="margin-top:12px">
+        <div class="delete-confirm-text">
+          <strong>Kategorie löschen?</strong><br>
+          "${escapeHtml(k.title)}" wird permanent entfernt. Diese Aktion kann nicht rückgängig gemacht werden.
+        </div>
+        <div class="delete-confirm-actions">
+          <button type="button" class="btn btn-red" onclick="deleteItem('kategorie-${k.id}')">Ja, löschen</button>
+          <button type="button" class="btn btn-ghost" onclick="hideDeleteConfirm('kategorie-${k.id}')">Abbrechen</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>`;
+}
+
+// ── New-form inline ──
+function showNewForm(type, parentId) {
+  document.querySelectorAll('.new-form').forEach(e=>e.remove());
+  document.querySelectorAll('.add-row').forEach(e=>e.style.display='');
+
+  const formEl = document.createElement('div');
+  formEl.className = 'new-form' + (type==='gruppe'?' lvl-1':type==='kategorie'?' lvl-2':'');
+
+  let inner = '';
+  if(type==='bereich') {
+    inner = `
+      <div class="ed-title">Neuer Bereich anlegen</div>
+      <form onsubmit="submitNewBereich(event)">
+        <div class="g3">
+          <div class="fld span2"><label>Name</label><input id="nf-name" placeholder="z.B. Marketing" name="displayName" autofocus required/></div>
+          <div class="fld"><label>Sortierung</label><input id="nf-sort" type="number" value="0" name="sortOrder"/></div>
+        </div>
+        <div class="fld"><label>Erforderliche Rolle (optional)</label><input id="nf-role" placeholder="z.B. Admin, Manager" name="requiredRole"/></div>
+        <div class="checks"><label class="check-label"><input type="checkbox" id="nf-active" name="isActive" checked/> Aktiv</label></div>
+        <div class="ed-actions">
+          <button type="submit" class="btn btn-green">✓ Anlegen</button>
+          <button type="button" class="btn btn-ghost" onclick="cancelNew()">Abbrechen</button>
+        </div>
+      </form>`;
+  } else if(type==='gruppe') {
+    inner = `
+      <div class="ed-title">Neue Gruppe anlegen</div>
+      <form onsubmit="submitNewGruppe(event, ${parentId})">
+        <div class="g3">
+          <div class="fld span2"><label>Name</label><input id="nf-name" placeholder="z.B. Hardware" name="displayName" autofocus required/></div>
+          <div class="fld"><label>Sortierung</label><input id="nf-sort" type="number" value="0" name="sortOrder"/></div>
+        </div>
+        <div class="fld"><label>Bereich</label>
+          <select id="nf-bereich" name="bereichId" required>
+            ${data.bereiche.map(b=>`<option value="${b.id}"${b.id===parentId?' selected':''}>${escapeHtml(b.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="checks">
+          <label class="check-label"><input type="checkbox" id="nf-collapsible" name="isCollapsible" checked/> Einklappbar</label>
+          <label class="check-label"><input type="checkbox" id="nf-expanded" name="isExpandedDefault" checked/> Standardmäßig geöffnet</label>
+          <label class="check-label"><input type="checkbox" id="nf-active" name="isActive" checked/> Aktiv</label>
+        </div>
+        <div class="ed-actions">
+          <button type="submit" class="btn btn-green">✓ Anlegen</button>
+          <button type="button" class="btn btn-ghost" onclick="cancelNew()">Abbrechen</button>
+        </div>
+      </form>`;
+  } else {
+    inner = `
+      <div class="ed-title">Neue Kategorie anlegen</div>
+      <form onsubmit="submitNewKategorie(event, ${parentId})">
+        <div class="g2">
+          <div class="fld"><label>Titel</label><input id="nf-name" placeholder="z.B. Server-Setup" name="title" autofocus required/></div>
+          <div class="fld"><label>Sortierung</label><input id="nf-sort" type="number" value="0" name="sortOrder"/></div>
+        </div>
+        <div class="fld"><label>Gruppe</label>
+          <select id="nf-gruppe" name="gruppeId" required>
+            ${data.gruppen.map(g=>{const b=data.bereiche.find(bb=>bb.id===g.bereichId);return`<option value="${g.id}"${g.id===parentId?' selected':''}>${b?escapeHtml(b.name)+' / ':''}${escapeHtml(g.name)}</option>`}).join('')}
+          </select>
+        </div>
+        <div class="fld"><label>Datenquelle (Connector)</label>
+          <select id="nf-connector" name="connectorId">
+            <option value="">-- Keine Datenquelle --</option>
+            ${connectors.map(c => `<option value="${c.id}">${escapeHtml(c.bezeichnung || c.type)} (${escapeHtml(c.connectorType)})</option>`).join('')}
+          </select>
+        </div>
+        <div class="fld"><label>SQL-Query</label><textarea id="nf-sql" placeholder="SELECT * FROM ..." name="sql_query"></textarea></div>
+        <div class="ed-actions">
+          <button type="submit" class="btn btn-green">✓ Anlegen</button>
+          <button type="button" class="btn btn-ghost" onclick="cancelNew()">Abbrechen</button>
+        </div>
+      </form>`;
+  }
+
+  formEl.innerHTML = inner;
+
+  if(type==='bereich') {
+    document.getElementById('root-list').insertAdjacentElement('afterbegin', formEl);
+  } else {
+    const addBtns = document.querySelectorAll('.add-row');
+    for(let btn of addBtns) {
+      if(type==='gruppe' && btn.textContent.includes('Neue Gruppe') && btn.textContent.includes(`"${data.bereiche.find(b=>b.id===parentId)?.name}"`) ||
+         type==='kategorie' && btn.textContent.includes('Neue Kategorie') && btn.textContent.includes(`"${data.gruppen.find(g=>g.id===parentId)?.name}"`)) {
+        btn.insertAdjacentElement('beforebegin', formEl);
+        btn.style.display = 'none';
+        break;
+      }
+    }
+  }
+
+  formEl.querySelector('form')?.querySelector('input')?.focus();
+}
+
+function cancelNew() {
+  document.querySelectorAll('.new-form').forEach(e=>e.remove());
+  document.querySelectorAll('.add-row').forEach(e=>e.style.display='');
+}
+
+// ── Submit handlers ──
+async function submitNewBereich(event) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const form = new FormData();
+  form.append('BereichForm.BereichID', '0');
+  form.append('BereichForm.DisplayName', formData.get('displayName'));
+  form.append('BereichForm.SortOrder', formData.get('sortOrder') || '0');
+  form.append('BereichForm.IsActive', formData.get('isActive') ? 'true' : 'false');
+  form.append('BereichForm.RequiredRole', formData.get('requiredRole') || '');
+  await submitToServer('SaveBereich', form);
+}
+
+async function submitNewGruppe(event, parentId) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const form = new FormData();
+  form.append('GruppeForm.GruppeID', '0');
+  form.append('GruppeForm.BereichID', formData.get('bereichId'));
+  form.append('GruppeForm.DisplayName', formData.get('displayName'));
+  form.append('GruppeForm.SortOrder', formData.get('sortOrder') || '0');
+  form.append('GruppeForm.IsCollapsible', formData.get('isCollapsible') ? 'true' : 'false');
+  form.append('GruppeForm.IsExpandedDefault', formData.get('isExpandedDefault') ? 'true' : 'false');
+  form.append('GruppeForm.IsActive', formData.get('isActive') ? 'true' : 'false');
+  await submitToServer('SaveGruppe', form);
+}
+
+async function submitNewKategorie(event, parentId) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const sqlQuery = formData.get('sql_query') || '';
+  const connectorId = formData.get('connectorId');
+
+  if (!validateSqlQuery(sqlQuery)) {
+    return;
+  }
+
+  const form = new FormData();
+  form.append('KategorieForm.KategorieID', '0');
+  form.append('KategorieForm.GruppeID', formData.get('gruppeId'));
+  form.append('KategorieForm.Title', formData.get('title'));
+  form.append('KategorieForm.SortOrder', formData.get('sortOrder') || '0');
+  form.append('KategorieForm.Sql_query', sqlQuery);
+
+  // Speichere zuerst die Kategorie, dann aktualisiere den Connector
+  await submitToServer('SaveKategorie', form, async () => {
+    if (connectorId) {
+      // Hier könnte man die neu erstellte KategorieID bekommen und dem Connector zuweisen
+      console.log('Neue Kategorie erstellt, Connector wird aktualisiert');
+    }
+  });
+}
+
+async function submitBereich(event, id) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const form = new FormData();
+  form.append('BereichForm.BereichID', id.toString());
+  form.append('BereichForm.DisplayName', formData.get('displayName'));
+  form.append('BereichForm.SortOrder', formData.get('sortOrder') || '0');
+  form.append('BereichForm.IsActive', formData.get('isActive') ? 'true' : 'false');
+  form.append('BereichForm.RequiredRole', formData.get('requiredRole') || '');
+  await submitToServer('SaveBereich', form);
+}
+
+async function submitGruppe(event, id) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const form = new FormData();
+  form.append('GruppeForm.GruppeID', id.toString());
+  form.append('GruppeForm.BereichID', formData.get('bereichId'));
+  form.append('GruppeForm.DisplayName', formData.get('displayName'));
+  form.append('GruppeForm.SortOrder', formData.get('sortOrder') || '0');
+  form.append('GruppeForm.IsCollapsible', formData.get('isCollapsible') ? 'true' : 'false');
+  form.append('GruppeForm.IsExpandedDefault', formData.get('isExpandedDefault') ? 'true' : 'false');
+  form.append('GruppeForm.IsActive', formData.get('isActive') ? 'true' : 'false');
+  await submitToServer('SaveGruppe', form);
+}
+
+// ── Validate SQL Query ──
+function validateSqlQuery(sqlQuery) {
+  if (!sqlQuery) return true; // Leere Queries sind OK
+
+  // Prüfe auf eckige Klammern
+  if (sqlQuery.includes('[') || sqlQuery.includes(']')) {
+    showToast('SQL-Query darf keine eckigen Klammern [ ] enthalten');
+    return false;
+  }
+
+  return true;
+}
+
+async function executeSqlQuery(editorKey) {
+  // Finde das Textarea-Element
+  const editor = document.getElementById('ed-' + editorKey);
+  if (!editor) {
+    showToast('Editor nicht gefunden');
+    return;
+  }
+
+  const textarea = editor.querySelector('textarea[name="sql_query"]');
+  if (!textarea) {
+    showToast('SQL-Query Feld nicht gefunden');
+    return;
+  }
+
+  const sqlQuery = textarea.value.trim();
+
+  if (!sqlQuery) {
+    showToast('Bitte geben Sie eine SQL-Query ein');
+    return;
+  }
+
+  if (!validateSqlQuery(sqlQuery)) {
+    return;
+  }
+
+  try {
+    showToast('Query wird ausgeführt...');
+
+    const response = await fetch('/Home/ExecuteKategorieSqlQuery', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+      },
+      body: JSON.stringify({ sqlQuery: sqlQuery, kategorieID: parseInt(editorKey.split('-')[1]) })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      showToast(`✓ ${data.message}`);
+      console.log('Query erfolgreich ausgeführt', data);
+    } else {
+      showToast(`✕ Fehler: ${data.error || 'Unbekannter Fehler'}`);
+      console.error('Query Fehler:', data);
+    }
+  } catch (error) {
+    showToast('Fehler bei der Query-Ausführung: ' + error.message);
+    console.error('Netzwerk-Fehler:', error);
+  }
+}
+
+async function submitKategorie(event, id) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const sqlQuery = formData.get('sql_query') || '';
+  const connectorId = formData.get('connectorId');
+
+  if (!validateSqlQuery(sqlQuery)) {
+    return;
+  }
+
+  // Wenn ein Connector ausgewählt ist, speichere die KategorieID in diesem Connector
+  if (connectorId) {
+    await updateConnectorKategorie(connectorId, id);
+  }
+
+  const form = new FormData();
+  form.append('KategorieForm.KategorieID', id.toString());
+  form.append('KategorieForm.GruppeID', formData.get('gruppeId'));
+  form.append('KategorieForm.Title', formData.get('title'));
+  form.append('KategorieForm.SortOrder', formData.get('sortOrder') || '0');
+  form.append('KategorieForm.Sql_query', sqlQuery);
+  await submitToServer('SaveKategorie', form);
+}
+
+async function updateConnectorKategorie(connectorId, kategorieId) {
+  try {
+    const response = await fetch(`/admin/connector/${connectorId}/kategorie/${kategorieId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+      }
+    });
+    if (!response.ok) {
+      console.error('Fehler beim Speichern der Kategorie im Connector');
+    }
+  } catch (error) {
+    console.error('Fehler:', error);
+  }
+}
+
+async function submitToServer(action, formData) {
+  try {
+    // Hole CSRF-Token
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+    if(token) {
+      formData.append('__RequestVerificationToken', token);
+    }
+
+    const response = await fetch(`/Home/${action}`, {
+      method: 'POST',
+      body: formData
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      // Fallback wenn Response kein JSON ist
+      data = { success: false, error: `HTTP ${response.status}` };
+    }
+
+    if(data.success) {
+      showToast('✓ ' + (data.message || 'Erfolgreich gespeichert'));
+      setTimeout(() => {
+        window.location.reload();
+      }, 800);
+    } else {
+      showToast('✕ ' + (data.error || 'Fehler beim Speichern'));
+    }
+  } catch(e) {
+    console.error('Fehler beim Übertragen:', e);
+    showToast('Fehler beim Speichern: ' + e.message);
+  }
+}
+
+// ── Toggle editor ──
+function toggleEditor(key) {
+  if(openEditors.has(key)) openEditors.delete(key);
+  else openEditors.add(key);
+  const el = document.getElementById('ed-'+key);
+  const entry = document.getElementById('ie-'+key);
+  if(el) el.classList.toggle('show', openEditors.has(key));
+  if(entry) entry.classList.toggle('is-open', openEditors.has(key));
+}
+
+// ── Delete ──
+let pendingDelete = null;
+
+function showDeleteConfirm(key) {
+  // Extrahiere Typ und ID aus dem Key (z.B. "bereich-5" -> "bereich", "5")
+  const [type, id] = key.split('-');
+  const editorKey = `${type}-${id}`;
+
+  // Öffne den Editor, falls nicht geöffnet
+  if(!openEditors.has(editorKey)) {
+    openEditors.add(editorKey);
+    const el = document.getElementById('ed-' + editorKey);
+    const entry = document.getElementById('ie-' + editorKey);
+    if(el) el.classList.add('show');
+    if(entry) entry.classList.add('is-open');
+  }
+
+  // Scrolle zum Editor
+  setTimeout(() => {
+    const editorEl = document.getElementById('ed-' + editorKey);
+    if(editorEl) {
+      editorEl.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    }
+  }, 50);
+
+  // Schließe alle offenen Bestätigungspanel
+  document.querySelectorAll('.delete-confirm.show').forEach(el => el.classList.remove('show'));
+
+  // Öffne das entsprechende Panel
+  const confirmPanel = document.getElementById('dc-' + key);
+  if(confirmPanel) {
+    confirmPanel.classList.add('show');
+  }
+}
+
+function hideDeleteConfirm(key) {
+  const confirmPanel = document.getElementById('dc-' + key);
+  if(confirmPanel) {
+    confirmPanel.classList.remove('show');
+  }
+}
+
+async function deleteItem(key) {
+  // Key format: "type-id" z.B. "bereich-5", "gruppe-3", "kategorie-12"
+  const [type, id] = key.split('-');
+  const formData = new FormData();
+
+  if(type === 'bereich') {
+    formData.append('bereichId', id);
+  } else if(type === 'gruppe') {
+    formData.append('gruppeId', id);
+  } else if(type === 'kategorie') {
+    formData.append('kategorieId', id);
+  }
+
+  console.log(`Lösche ${type} mit ID ${id}, sende zu Delete${type.charAt(0).toUpperCase() + type.slice(1)}`);
+  await submitToServer(`Delete${type.charAt(0).toUpperCase() + type.slice(1)}`, formData);
+  hideDeleteConfirm(key);
+}
+
+function confirmDelete(type, id, name) {
+  const typeLabel = {bereich:'Bereich',gruppe:'Gruppe',kategorie:'Kategorie'}[type];
+  let warning = '';
+  if(type==='bereich') {
+    const gruppen = data.gruppen.filter(g=>g.bereichId===id);
+    if(gruppen.length) warning = ` Dieser Bereich enthält ${gruppen.length} Gruppe(n). Alle untergeordneten Einträge werden ebenfalls gelöscht.`;
+  }
+  if(type==='gruppe') {
+    const kategorien = data.kategorien.filter(k=>k.gruppeId===id);
+    if(kategorien.length) warning = ` Diese Gruppe enthält ${kategorien.length} Kategorie(n). Diese werden ebenfalls gelöscht.`;
+  }
+
+  pendingDelete = {type, id, name};
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ── Utils ──
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ── Init ──
+if(document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', async function() {
+    await loadConnectors();
+    render();
+  });
+} else {
+  // DOM ist bereits geladen
+  loadConnectors().then(() => render());
+}
+    </script>
+}

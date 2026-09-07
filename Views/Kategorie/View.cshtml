@@ -1,0 +1,234 @@
+@using topfact.Pulse.Models
+@using topfact.Pulse.Services
+
+@{
+    ViewData["Title"] = ViewBag.Kategorie?.Title ?? "Kategorie";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid mt-4">
+    <div class="page-header">
+        <h1>@ViewBag.Kategorie?.Title</h1>
+        @if (ViewBag.SqlQuery != null)
+        {
+            <p class="text-muted"><small>SQL Query definiert</small></p>
+        }
+    </div>
+
+    <!-- KPIs Section -->
+    @if (ViewBag.KpiValues != null && ((List<KpiValueDto>)ViewBag.KpiValues).Count > 0)
+    {
+        <div class="kpi-container mt-4 mb-4">
+            <div class="kpi-grid">
+                @foreach (var kpi in (List<KpiValueDto>)ViewBag.KpiValues)
+                {
+                    <div class="kpi-card" style="border-left: 4px solid @(kpi.GetStatusColor());">
+                        <div class="kpi-header">
+                            <i class="@(kpi.IconCss ?? "ri-bar-chart-line")" style="color: @(kpi.GetStatusColor());"></i>
+                            <h5>@kpi.Title</h5>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(kpi.Description))
+                        {
+                            <p class="kpi-description">@kpi.Description</p>
+                        }
+                        <p class="kpi-value">
+                            @if (kpi.Value.HasValue)
+                            {
+                                <strong>@kpi.Value?.ToString("N0")</strong>
+                                @if (!string.IsNullOrWhiteSpace(kpi.Unit))
+                                {
+                                    <span class="kpi-unit">@kpi.Unit</span>
+                                }
+                            }
+                            else
+                            {
+                                <strong class="text-muted">-</strong>
+                            }
+                        </p>
+                        @if (kpi.TargetValue.HasValue)
+                        {
+                            <p class="kpi-target">
+                                Ziel: <strong>@kpi.TargetValue?.ToString("N0")</strong>
+                                @if (!string.IsNullOrWhiteSpace(kpi.Unit))
+                                {
+                                    <span class="kpi-unit">@kpi.Unit</span>
+                                }
+                            </p>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Tabelle Section -->
+    @if (ViewBag.Rows != null && ((List<Dictionary<string, object>>)ViewBag.Rows).Count > 0)
+    {
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Abfrageergebnisse</h5>
+                <div class="text-muted small">
+                    @if (ViewBag.RowCount != null)
+                    {
+                        <span><i class="ri-database-2-line"></i> @ViewBag.RowCount Zeilen</span>
+                    }
+                    @if (ViewBag.ExecutedAt != null)
+                    {
+                        <span class="ms-3"><i class="ri-time-line"></i> @(((DateTime)ViewBag.ExecutedAt).ToString("dd.MM.yyyy HH:mm:ss"))</span>
+                    }
+                    @if (ViewBag.LastUpdated != null)
+                    {
+                        <span class="ms-3"><i class="ri-refresh-line"></i> DB-Update: @(((DateTime)ViewBag.LastUpdated).ToString("dd.MM.yyyy HH:mm:ss"))</span>
+                    }
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="kategorieGrid" style="height: 500px;" class="ag-theme-quartz"></div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info mt-4">
+            Keine Daten verfuegbar fuer diese Kategorie.
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/ag-grid-community.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const containerElement = document.getElementById('kategorieGrid');
+            if (!containerElement) return;
+
+            const rows = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((ViewBag.Rows as List<Dictionary<string, object>>) ?? new()));
+            const columns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((ViewBag.Columns as List<string>) ?? new()));
+
+            if (rows.length === 0) return;
+
+            // Spalten-Definitionen mit automatischer Erkennung von Datentypen
+            const columnDefs = columns.map(col => {
+                // Versuche zu erkennen, ob es eine Zahl ist
+                const isNumeric = rows.length > 0 && typeof rows[0][col] === 'number';
+
+                return {
+                    field: col,
+                    headerName: col,
+                    sortable: true,
+                    filter: true,
+                    resizable: true,
+                    valueFormatter: isNumeric ? function(params) {
+                        if (params.value != null && typeof params.value === 'number') {
+                            return params.value.toLocaleString('de-DE');
+                        }
+                        return params.value;
+                    } : null
+                };
+            });
+
+            const gridOptions = {
+                columnDefs: columnDefs,
+                rowData: rows,
+                pagination: true,
+                paginationPageSize: 20,
+                paginationPageSizeSelector: [10, 20, 50, 100],
+                domLayout: 'normal',
+                defaultColDef: {
+                    flex: 1,
+                    minWidth: 100
+                }
+            };
+
+            new agGrid.Grid(containerElement, gridOptions);
+        });
+    </script>
+}
+
+<style>
+    .kpi-container {
+        margin: 2rem 0;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .kpi-card {
+        background: var(--card-bg, #ffffff);
+        border: 1px solid var(--border, #e8edf4);
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .kpi-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
+    }
+
+    .kpi-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .kpi-header i {
+        font-size: 1.5rem;
+    }
+
+    .kpi-header h5 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+
+    .kpi-description {
+        font-size: 0.85rem;
+        color: var(--text-muted, #64748b);
+        margin: 0.5rem 0;
+        line-height: 1.4;
+    }
+
+    .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-main, #1e293b);
+        margin: 0.75rem 0 0 0;
+    }
+
+    .kpi-unit {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-muted, #64748b);
+        margin-left: 0.5rem;
+    }
+
+    .kpi-target {
+        font-size: 0.85rem;
+        color: var(--text-muted, #64748b);
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--border, #e8edf4);
+    }
+
+    [data-pulse-theme="dark"] .kpi-card {
+        background: #1e293b;
+        border-color: #334155;
+    }
+
+    [data-pulse-theme="dark"] .kpi-description {
+        color: #94a3b8;
+    }
+
+    [data-pulse-theme="dark"] .kpi-value {
+        color: #f1f5f9;
+    }
+
+    .card-header .text-muted small {
+        font-size: 0.85rem;
+    }
+</style>

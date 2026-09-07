@@ -1,0 +1,567 @@
+@{
+    // Partial View für automatische Kategorie-Daten-Anzeige
+    // Zeigt Query Results in AG Grid + KPI Cards (wie Kategorie/View.cshtml)
+}
+
+<!-- AG Grid Scripts & Styles -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/styles/ag-grid.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/styles/ag-theme-quartz.css">
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/ag-grid-community.min.js"></script>
+
+<div id="kategorie-data-panel" class="kategorie-data-panel" style="display:none;">
+    <!-- Header mit Kategorie-Name -->
+    <div class="page-header mb-4">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 id="kategorie-name">Kategorie Daten</h1>
+            </div>
+            <div class="kategorie-header-actions">
+                <a id="full-view-link" href="#" class="btn btn-sm btn-primary" style="display:none;">
+                    <i class="ri-fullscreen-line"></i> Vollansicht
+                </a>
+                <button class="btn btn-sm btn-secondary" id="close-panel-btn" type="button">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPIs Section (wie in Kategorie/View.cshtml) -->
+    <div id="kpi-section" style="display:none;">
+        <div class="kpi-container mt-4 mb-4">
+            <div class="kpi-grid" id="kpi-container"></div>
+        </div>
+    </div>
+
+    <!-- Query Results Table mit AG Grid (wie in Kategorie/View.cshtml) -->
+    <div id="query-results-section" style="display:none;">
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Abfrageergebnisse</h5>
+            </div>
+            <div class="card-body">
+                <div id="ag-grid-container" style="height: 500px;" class="ag-theme-quartz"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .kategorie-data-panel {
+        padding: 0;
+    }
+
+    .kategorie-header-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    /* KPI Container Styling (aus Kategorie/View.cshtml) */
+    .kpi-container {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .kpi-card {
+        background: white;
+        border-left: 4px solid #007bff;
+        border-radius: 0.25rem;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .kpi-card:hover {
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.2);
+        transform: translateY(-4px);
+    }
+
+    .kpi-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        gap: 0.75rem;
+    }
+
+    .kpi-header i {
+        font-size: 1.5rem;
+    }
+
+    .kpi-header h5 {
+        margin: 0;
+        color: #212529;
+        font-weight: 600;
+    }
+
+    .kpi-description {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .kpi-value {
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+
+    .kpi-value strong {
+        font-size: 1.5rem;
+        color: #212529;
+    }
+
+    .kpi-unit {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-left: 0.25rem;
+    }
+
+    .kpi-status {
+        color: #dc3545;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .kpi-target {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+    }
+</style>
+
+<script>
+    // gridApi für AG Grid
+    let gridApi = null;
+
+    /**
+     * Lädt Kategorie-Daten über die API und zeigt sie an.
+     * Unterstützt die API-Response-Struktur mit body, statusCode, isSuccess, etc.
+     * Zeigt Daten wie Kategorie/View.cshtml: KPI Cards oben, dann AG Grid Tabelle
+     */
+    window.loadKategorieData = async function(kategorieId, bereich = 'Technik') {
+        if (!kategorieId || kategorieId <= 0) {
+            console.warn('[KategorieDataPanel] Ungültige KategorieID:', kategorieId);
+            return;
+        }
+
+        console.log('[KategorieDataPanel] ============ STARTE LADEN ============');
+        console.log('[KategorieDataPanel] Lade Daten für KategorieID:', kategorieId, 'Bereich:', bereich);
+
+        try {
+            const response = await fetch(`/Home/GetKategorieData?kategorieId=${kategorieId}`);
+            if (!response.ok) {
+                console.error('[KategorieDataPanel] HTTP Error:', response.status);
+                return;
+            }
+
+            const apiResponse = await response.json();
+            console.log('[KategorieDataPanel] API-Response empfangen:', apiResponse);
+
+            // Entpacke die Wrapper-Struktur: { statusCode, isSuccess, body, headers, requestBody, ... }
+            if (!apiResponse.isSuccess || apiResponse.statusCode !== 200) {
+                console.error('[KategorieDataPanel] API Fehler:', {
+                    statusCode: apiResponse.statusCode,
+                    isSuccess: apiResponse.isSuccess
+                });
+                $('#kategorie-data-panel').hide();
+                return;
+            }
+
+            // Extrahiere `body` (Kern der Daten)
+            const data = apiResponse.body;
+            if (!data) {
+                console.error('[KategorieDataPanel] Keine `body` in API-Response');
+                $('#kategorie-data-panel').hide();
+                return;
+            }
+
+            console.log('[KategorieDataPanel] Extrahierte Daten aus body:', data);
+
+            // Überprüfe ob wirklich Daten vorhanden sind
+            // Nicht nur wenn hasDaten true ist, sondern auch wenn queryResults oder kpis vorhanden sind
+            const hasQueryData = data.queryResults && data.queryResults.length > 0;
+            const hasKpiData = data.kpis && data.kpis.length > 0;
+            const hasAnyData = hasQueryData || hasKpiData;
+
+            console.log('[KategorieDataPanel] Daten-Status:', {
+                hasDaten: data.hasDaten,
+                hasQueryData: hasQueryData,
+                hasKpiData: hasKpiData,
+                hasAnyData: hasAnyData,
+                queryResultsCount: data.queryResults ? data.queryResults.length : 0,
+                kpisCount: data.kpis ? data.kpis.length : 0
+            });
+
+            // ============ CONNECTOR-TYP-ERKENNUNG ============
+            // Prüfe JEDES Query-Result, ob es SQL oder API ist
+            if (data.queryResults && data.queryResults.length > 0) {
+                console.log('[ConnectorCheck] ===============================');
+                console.log('[ConnectorCheck] Analysiere', data.queryResults.length, 'Query Results auf Connector-Typ:');
+                data.queryResults.forEach((qr, idx) => {
+                    let datenRaw = qr.daten;
+                    let datenParsed = null;
+                    let connectorType = 'UNBEKANNT';
+                    let details = {};
+
+                    try {
+                        datenParsed = typeof datenRaw === 'string' ? JSON.parse(datenRaw) : datenRaw;
+
+                        if (datenParsed && datenParsed.rowCount !== undefined) {
+                            connectorType = 'SQL';
+                            details = {
+                                rowCount: datenParsed.rowCount,
+                                executedAtUtc: datenParsed.executedAtUtc,
+                                rowsLength: Array.isArray(datenParsed.rows) ? datenParsed.rows.length : 'KEIN ARRAY'
+                            };
+                        } else if (datenParsed && datenParsed.statusCode !== undefined) {
+                            connectorType = 'API';
+                            details = {
+                                statusCode: datenParsed.statusCode,
+                                isSuccess: datenParsed.isSuccess,
+                                contentType: datenParsed.contentType,
+                                hasBody: !!datenParsed.body,
+                                bodyType: datenParsed.body ? (Array.isArray(datenParsed.body) ? 'Array' : typeof datenParsed.body) : 'null',
+                                bodyKeys: datenParsed.body && !Array.isArray(datenParsed.body) ? Object.keys(datenParsed.body) : 'n/a'
+                            };
+                        }
+                    } catch (e) {
+                        connectorType = 'PARSE-FEHLER';
+                        details = { error: e.message };
+                    }
+
+                    console.log(`[ConnectorCheck] Query #${idx} (QueryID=${qr.QueryID}):`, {
+                        ConnectorTyp: connectorType,
+                        ...details
+                    });
+                });
+                console.log('[ConnectorCheck] ===============================');
+            }
+            // ============ ENDE CONNECTOR-TYP-ERKENNUNG ============
+
+            if (!hasAnyData) {
+                console.log('[KategorieDataPanel] Keine Daten für KategorieID:', kategorieId);
+                $('#kategorie-data-panel').hide();
+                return;
+            }
+
+            // Update Kategorie-Name (wie ViewBag.Kategorie?.Title)
+            $('#kategorie-name').text(data.kategorieName || 'Kategorie');
+
+            // Update Vollansicht-Link
+            const fullViewUrl = `/kategorie/view/${kategorieId}`;
+
+            // DEBUG: Zeige woher die Full View URL kommt
+            console.log('[KategorieDataPanel DEBUG] ============ FULL VIEW URL ============');
+            console.log('[KategorieDataPanel DEBUG] bereich (parameter):', bereich);
+            console.log('[KategorieDataPanel DEBUG] kategorieId (parameter):', kategorieId);
+            console.log('[KategorieDataPanel DEBUG] fullViewUrl (generiert):', fullViewUrl);
+            console.log('[KategorieDataPanel DEBUG] data.kategorieName:', data.kategorieName);
+            console.log('[KategorieDataPanel DEBUG] Window Location Path:', window.location.pathname);
+            console.log('[KategorieDataPanel DEBUG] ===========================================');
+
+            $('#full-view-link').attr('href', fullViewUrl).show();
+
+            // Verstecke beide Sektionen zunächst
+            $('#kpi-section').hide();
+            $('#query-results-section').hide();
+
+            // Lade KPI Cards ZUERST (wie in Kategorie/View.cshtml - KPIs vor Table)
+            if (data.kpis && data.kpis.length > 0) {
+                renderKpiCards(data.kpis);
+                $('#kpi-section').show();
+            }
+
+            // Debug: Logge queryResults Struktur
+            console.log('[KategorieDataPanel] API Response:', apiResponse);
+            console.log('[KategorieDataPanel] Body:', data);
+            console.log('[KategorieDataPanel] queryResults Details:', {
+                count: data.queryResults ? data.queryResults.length : 0,
+                sample: data.queryResults && data.queryResults.length > 0 ? data.queryResults[0] : null
+            });
+
+            // Lade Query Results in AG Grid DANACH (wie in Kategorie/View.cshtml)
+            if (data.queryResults && data.queryResults.length > 0) {
+                initializeAgGrid(data.queryResults);
+                $('#query-results-section').show();
+            }
+
+            // Zeige Panel
+            $('#kategorie-data-panel').slideDown(300);
+
+        } catch (error) {
+            console.error('[KategorieDataPanel] Fehler beim Laden der Daten:', error);
+            $('#kategorie-data-panel').hide();
+        }
+    };
+
+    //
+    // Parst die Query Results und extrahiert die eigentlichen Daten
+    // Unterscheidet SQL (rowCount) und API (statusCode) Strukturen
+    // Eingabe: Array von Query-Objekten
+    // Rückgabe: Flaches Array von Daten-Objekten für AG Grid
+    //
+    function parseQueryResultsData(queryResults) {
+        if (!queryResults || queryResults.length === 0) {
+            console.log('[KategorieDataPanel] Keine Query Results zum Parsen');
+            return [];
+        }
+
+        console.log('[parseQueryResultsData] START - Query Count:', queryResults.length);
+
+        const allRows = [];
+
+        queryResults.forEach((qr, index) => {
+            console.log(`[parseQueryResultsData] Query ${index}:`, {
+                QueryID: qr.QueryID,
+                datenType: typeof qr.daten,
+                datenLength: qr.daten ? qr.daten.length : 0,
+                datenPreview: qr.daten ? qr.daten.substring(0, 100) : 'null'
+            });
+
+            // Überspringe Queries ohne Daten
+            if (!qr.daten) {
+                console.warn(`[KategorieDataPanel] Query ${index} hat keine Daten, übersprungen`);
+                return;
+            }
+
+            let dataParsed;
+            try {
+                // Versuche JSON zu parsen
+                dataParsed = typeof qr.daten === 'string' ? JSON.parse(qr.daten) : qr.daten;
+                console.log(`[parseQueryResultsData] Query ${index}: JSON geparst erfolgreich`, {
+                    keys: Object.keys(dataParsed),
+                    hasRowCount: dataParsed.rowCount !== undefined,
+                    hasStatusCode: dataParsed.statusCode !== undefined,
+                    isArray: Array.isArray(dataParsed)
+                });
+            } catch (e) {
+                console.error(`[KategorieDataPanel] Fehler beim Parsen von Query ${index}:`, e);
+                console.error(`[KategorieDataPanel] Raw daten:`, qr.daten);
+                return;
+            }
+
+            // Erkenne den Datentyp
+            let rows = [];
+
+            // SQL-Struktur: { rowCount: N, executedAtUtc: ..., rows: [...] }
+            if (dataParsed.rowCount !== undefined) {
+                console.log(`[KategorieDataPanel] Query ${index}: SQL-Daten erkannt (rowCount=${dataParsed.rowCount})`);
+                // SQL hat immer .rows, aber fallback auf .data just in case
+                let sqlRows = dataParsed.rows || dataParsed.data || [];
+
+                // Fallback: Wenn rows selbst kein Array ist, packe es in ein Array
+                if (!Array.isArray(sqlRows)) {
+                    console.log(`[KategorieDataPanel] Query ${index}: SQL-rows ist kein Array, konvertiere zu Array`);
+                    sqlRows = [sqlRows];
+                }
+                rows = sqlRows;
+                console.log(`[KategorieDataPanel] Query ${index}: SQL - extrahierte ${rows.length} rows`);
+            }
+            // API-Struktur: { statusCode: N, isSuccess: bool, body: {...}, ... }
+            // body kann sein: 
+            //   - Ein Array: [ {}, {} ]
+            //   - Ein Objekt mit rows: { rows: [ {} ] }
+            //   - Ein Objekt mit data: { data: [ {} ] }
+            //   - Ein beliebiges Objekt (einzelnes Record) -> dann in Array packen!
+            //   - Ein JSON-String -> nochmal parsen!
+            else if (dataParsed.statusCode !== undefined) {
+                console.log(`[KategorieDataPanel] Query ${index}: API-Daten erkannt (statusCode=${dataParsed.statusCode})`);
+
+                let body = dataParsed.body;
+
+                // Falls body ein String ist (doppelt escaped), nochmal parsen
+                if (typeof body === 'string') {
+                    try {
+                        body = JSON.parse(body);
+                        console.log(`[KategorieDataPanel] Query ${index}: body war String, erfolgreich geparst`);
+                    } catch (e) {
+                        console.warn(`[KategorieDataPanel] Query ${index}: body ist String aber kein gültiges JSON`);
+                    }
+                }
+
+                if (body) {
+                    // Logge die body-Struktur zur Diagnose
+                    console.log(`[KategorieDataPanel] Query ${index}: body-Struktur:`, {
+                        type: Array.isArray(body) ? 'Array' : typeof body,
+                        isArray: Array.isArray(body),
+                        keys: !Array.isArray(body) && typeof body === 'object' ? Object.keys(body) : 'n/a'
+                    });
+
+                    // Wenn body selbst ein Array ist, nutze es direkt
+                    if (Array.isArray(body)) {
+                        rows = body;
+                    }
+                    // Versuche Subproperties zu extrahieren
+                    else if (body.rows) {
+                        rows = body.rows;
+                    }
+                    else if (body.data) {
+                        rows = body.data;
+                    }
+                    else if (body.results) {
+                        rows = body.results;
+                    }
+                    else if (body.items) {
+                        rows = body.items;
+                    }
+                    // Fallback: body ist ein einzelnes Objekt -> in Array packen!
+                    else {
+                        rows = [body];
+                        console.log(`[KategorieDataPanel] Query ${index}: body als einzelnes Objekt erkannt, in Array konvertiert`);
+                    }
+                }
+            }
+            // Fallback: Wenn es direkt ein Array ist
+            else if (Array.isArray(dataParsed)) {
+                console.log(`[KategorieDataPanel] Query ${index}: Direkt Array erkannt`);
+                rows = dataParsed;
+            }
+            else {
+                console.warn(`[KategorieDataPanel] Query ${index}: Unbekannte Datenstruktur:`, dataParsed);
+            }
+
+            console.log(`[parseQueryResultsData] Query ${index}: ${rows.length} Rows extrahiert`);
+
+            // Füge alle Rows ans Gesamtarray
+            if (Array.isArray(rows)) {
+                allRows.push(...rows);
+            }
+        });
+
+        console.log('[KategorieDataPanel] Insgesamt', allRows.length, 'Daten-Reihen extrahiert');
+        if (allRows.length > 0) {
+            console.log('[KategorieDataPanel] Erste Row:', allRows[0]);
+        }
+        return allRows;
+    }
+
+    /**
+     * Initialisiert AG Grid mit Query Results (wie Kategorie/View.cshtml)
+     * Nutzt parseQueryResultsData() um SQL und API Daten zu unterscheiden
+     */
+    function initializeAgGrid(queryResults) {
+        if (!queryResults || queryResults.length === 0) {
+            console.log('[KategorieDataPanel] Keine Query Results vorhanden');
+            return;
+        }
+
+        // Parse und extrahiere die eigentlichen Daten (SQL vs API)
+        const gridRows = parseQueryResultsData(queryResults);
+
+        if (!gridRows || gridRows.length === 0) {
+            console.log('[KategorieDataPanel] Keine Daten nach dem Parsen vorhanden');
+            return;
+        }
+
+        // Ermittle dynamisch die Spalten aus dem ersten Datensatz (wie Kategorie/View.cshtml)
+        const firstRow = gridRows[0];
+        const columnDefs = Object.keys(firstRow).map(key => ({
+            field: key,
+            headerName: formatColumnName(key),
+            sortable: true,
+            filter: true,
+            flex: 1,
+            minWidth: 100
+        }));
+
+        const gridOptions = {
+            columnDefs: columnDefs,
+            rowData: gridRows,
+            pagination: true,
+            paginationPageSize: 10,
+            domLayout: 'normal',
+            onGridReady: (params) => {
+                params.api.sizeColumnsToFit();
+            }
+        };
+
+        if (!gridApi) {
+            const gridDiv = document.querySelector('#ag-grid-container');
+            if (gridDiv) {
+                gridApi = agGrid.createGrid(gridDiv, gridOptions);
+            }
+        } else {
+            gridApi.setGridOption('rowData', gridRows);
+        }
+
+        console.log('[KategorieDataPanel] AG Grid initialisiert mit', gridRows.length, 'Reihen');
+    }
+
+    /**
+     * Formatiert Spaltennamen in lesbare Form
+     * z.B. "sqlQuery" -> "SQL Query", "daten" -> "Daten"
+     */
+    function formatColumnName(fieldName) {
+        // Spezielle Abkürzungen
+        const specialCases = {
+            'queryID': 'Query ID',
+            'kategorieID': 'Kategorie ID',
+            'sqlQuery': 'SQL Query',
+            'daten': 'Daten',
+            'createdAt': 'Erstellt'
+        };
+
+        if (specialCases[fieldName]) {
+            return specialCases[fieldName];
+        }
+
+        // Allgemeine Formatierung: camelCase -> Title Case
+        return fieldName
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/^./, str => str.toUpperCase())
+            .trim();
+    }
+
+    /**
+     * Rendet KPI-Indikatoren-Cards (wie in Kategorie/View.cshtml)
+     * Zeigt KPI Title, Description, Color, Icon, Unit
+     */
+    function renderKpiCards(kpis) {
+        const container = $('#kpi-container');
+        container.empty();
+
+        if (!kpis || kpis.length === 0) {
+            container.html('<p class="text-muted">Keine KPI-Indikatoren verfügbar.</p>');
+            return;
+        }
+
+        // Erstelle KPI Cards ähnlich wie in Kategorie/View.cshtml
+        kpis.forEach(kpi => {
+            const statusColor = kpi.color || '#007bff';
+            const iconClass = kpi.iconCss || 'ri-bar-chart-line';
+
+            const kpiCard = $(`
+                <div class="kpi-card" style="border-left-color: ${statusColor};">
+                    <div class="kpi-header">
+                        <i class="${iconClass}" style="color: ${statusColor};"></i>
+                        <h5>${kpi.title || 'KPI'}</h5>
+                    </div>
+                    ${kpi.description ? `<p class="kpi-description">${kpi.description}</p>` : ''}
+                    <p class="kpi-value">
+                        <strong class="text-muted">–</strong>
+                        ${kpi.unit ? `<span class="kpi-unit">${kpi.unit}</span>` : ''}
+                    </p>
+                </div>
+            `);
+
+            container.append(kpiCard);
+        });
+
+        console.log('[KategorieDataPanel] KPI Cards gerendert:', kpis.length);
+    }
+
+    // Close-Button Handler
+    $(document).ready(function() {
+        $('#close-panel-btn').on('click', function() {
+            $('#kategorie-data-panel').slideUp(300);
+        });
+    });
+</script>

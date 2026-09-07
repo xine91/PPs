@@ -1,0 +1,636 @@
+@{
+    ViewData["Title"] = "IT-Sicherheitsorganisation";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-theme-quartz.css" />
+
+    <style>
+        /* --- Base ------------------------------------------- */
+        body {
+            background-color: #0b1120;
+        }
+
+        /* --- Page Header ------------------------------------ */
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .page-header-left h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin: 0 0 0.2rem;
+            letter-spacing: -0.02em;
+        }
+
+        .page-header-left p {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        /* --- Fortschrittsbalken ----------------------------- */
+        .progress-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .progress-top {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 0.9rem;
+        }
+
+        .progress-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+        }
+
+        .progress-pct-wrap {
+            display: flex;
+            align-items: baseline;
+            gap: 0.4rem;
+        }
+
+        .progress-pct {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #22c55e;
+            line-height: 1;
+            transition: color 0.4s;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .progress-pct-label {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        /* Gestapelter Balken */
+        .stacked-track {
+            display: flex;
+            height: 10px;
+            border-radius: 99px;
+            overflow: hidden;
+            background: #0f172a;
+            margin-bottom: 1rem;
+            gap: 2px;
+        }
+
+        .stacked-seg {
+            height: 100%;
+            border-radius: 99px;
+            transition: width 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 0;
+        }
+
+        /* Legende */
+        .progress-legend {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 99px;
+            padding: 0.3rem 0.75rem;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-count {
+            font-weight: 700;
+            color: #f1f5f9;
+            margin-left: 2px;
+        }
+
+        /* --- Stat-Karten ------------------------------------ */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .stat-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.15s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        .stat-card.active {
+            border-color: var(--card-color);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--card-color, #475569);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .stat-card-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            margin-bottom: 0.35rem;
+        }
+
+        .stat-card-sub {
+            font-size: 0.72rem;
+            color: #475569;
+            margin-top: 0.3rem;
+        }
+
+        .stat-card-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            transition: color 0.3s;
+        }
+
+        .stat-card[data-status="Alle"]           { --card-color: #475569; }
+        .stat-card[data-status="Erledigt"]       { --card-color: #22c55e; }
+        .stat-card[data-status="In Bearbeitung"] { --card-color: #f59e0b; }
+        .stat-card[data-status="In Planung"]     { --card-color: #3b82f6; }
+
+        .stat-card[data-status="Erledigt"] .stat-card-value   { color: #22c55e; }
+        .stat-card[data-status="In Bearbeitung"] .stat-card-value { color: #f59e0b; }
+        .stat-card[data-status="In Planung"] .stat-card-value     { color: #3b82f6; }
+
+        /* --- Grid-Bereich ----------------------------------- */
+        .grid-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px;
+            padding: 1.1rem 1.25rem 0.75rem;
+        }
+
+        .grid-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .grid-toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .search-wrap {
+            position: relative;
+        }
+
+        .search-wrap svg {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            pointer-events: none;
+        }
+
+        .grid-search {
+            background: #0f172a;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 0.82rem;
+            padding: 0.42rem 0.75rem 0.42rem 2rem;
+            width: 220px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .grid-search::placeholder { color: #475569; }
+
+        .grid-search:focus {
+            border-color: rgba(99,102,241,0.5);
+        }
+
+        .grid-meta {
+            font-size: 0.75rem;
+            color: #475569;
+            padding-top: 0.5rem;
+            text-align: right;
+        }
+
+        #checklistenGrid {
+            width: 100%;
+            height: calc(100vh - 390px);
+            min-height: 380px;
+        }
+
+        /* --- Zeilen-Farben nach Status ---------------------- */
+        .ag-theme-quartz .row-erledigt {
+            background-color: rgba(34, 197, 94, 0.10) !important;
+            border-left: 3px solid #22c55e !important;
+        }
+        .ag-theme-quartz .row-erledigt:hover {
+            background-color: rgba(34, 197, 94, 0.18) !important;
+        }
+        .ag-theme-quartz .row-bearbeitung {
+            background-color: rgba(245, 158, 11, 0.10) !important;
+            border-left: 3px solid #f59e0b !important;
+        }
+        .ag-theme-quartz .row-bearbeitung:hover {
+            background-color: rgba(245, 158, 11, 0.18) !important;
+        }
+        .ag-theme-quartz .row-planung {
+            background-color: rgba(59, 130, 246, 0.10) !important;
+            border-left: 3px solid #3b82f6 !important;
+        }
+        .ag-theme-quartz .row-planung:hover {
+            background-color: rgba(59, 130, 246, 0.18) !important;
+        }
+
+        /* Dark-mode row text (light text on dark bg) */
+        [data-pulse-theme="dark"] .ag-theme-quartz .row-erledigt    { color: #bbf7d0 !important; }
+        [data-pulse-theme="dark"] .ag-theme-quartz .row-bearbeitung { color: #fde68a !important; }
+        [data-pulse-theme="dark"] .ag-theme-quartz .row-planung     { color: #bfdbfe !important; }
+
+        /* Status-Text in Zelle */
+        .status-text {
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .status-text.erledigt    { color: #4ade80; }
+        .status-text.bearbeitung { color: #fbbf24; }
+        .status-text.planung     { color: #60a5fa; }
+        .status-text.default     { color: #94a3b8; }
+
+        /* --- Loading-Overlay -------------------------------- */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(14,22,38,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            z-index: 10;
+            backdrop-filter: blur(2px);
+            transition: opacity 0.3s;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 28px;
+            height: 28px;
+            border: 2.5px solid rgba(255,255,255,0.1);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @@keyframes spin { to { transform: rotate(360deg); } }
+
+        .grid-wrap {
+            position: relative;
+        }
+    </style>
+}
+
+<!-- --- Page Header ---------------------------------------- -->
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>IT-Sicherheitsorganisation</h1>
+        <p>Übersicht aller Checklisten-Punkte aus der Datenbank</p>
+    </div>
+</div>
+
+<!-- --- Fortschrittsbalken --------------------------------- -->
+<div class="progress-card">
+    <div class="progress-top">
+        <span class="progress-title">Gesamtfortschritt</span>
+        <div class="progress-pct-wrap">
+            <span class="progress-pct" id="progressPct">—</span>
+            <span class="progress-pct-label">erledigt</span>
+        </div>
+    </div>
+
+    <div class="stacked-track">
+        <div class="stacked-seg" id="segErledigt"    style="background:#22c55e; width:0%;"></div>
+        <div class="stacked-seg" id="segBearbeitung" style="background:#f59e0b; width:0%;"></div>
+        <div class="stacked-seg" id="segPlanung"     style="background:#3b82f6; width:0%;"></div>
+    </div>
+
+    <div class="progress-legend">
+        <div class="legend-pill">
+            <div class="legend-dot" style="background:#22c55e;"></div>
+            Erledigt <span class="legend-count" id="cntErledigt">0</span>
+        </div>
+        <div class="legend-pill">
+            <div class="legend-dot" style="background:#f59e0b;"></div>
+            In Bearbeitung <span class="legend-count" id="cntBearbeitung">0</span>
+        </div>
+        <div class="legend-pill">
+            <div class="legend-dot" style="background:#3b82f6;"></div>
+            In Planung <span class="legend-count" id="cntPlanung">0</span>
+        </div>
+        <div class="legend-pill">
+            <div class="legend-dot" style="background:#475569;"></div>
+            Gesamt <span class="legend-count" id="cntGesamt">0</span>
+        </div>
+    </div>
+</div>
+
+<!-- --- Stat-Karten (klickbar = Filter) ------------------- -->
+<div class="stat-grid">
+    <div class="stat-card active" data-status="Alle">
+        <div class="stat-card-label">Alle</div>
+        <div class="stat-card-value" id="statAlle">0</div>
+        <div class="stat-card-sub">Alle Checklistenpunkte</div>
+    </div>
+    <div class="stat-card" data-status="Erledigt">
+        <div class="stat-card-label">Erledigt</div>
+        <div class="stat-card-value" id="statErledigt">0</div>
+        <div class="stat-card-sub">Abgeschlossene Punkte</div>
+    </div>
+    <div class="stat-card" data-status="In Bearbeitung">
+        <div class="stat-card-label">In Bearbeitung</div>
+        <div class="stat-card-value" id="statBearbeitung">0</div>
+        <div class="stat-card-sub">Aktiv bearbeitet</div>
+    </div>
+    <div class="stat-card" data-status="In Planung">
+        <div class="stat-card-label">In Planung</div>
+        <div class="stat-card-value" id="statPlanung">0</div>
+        <div class="stat-card-sub">Noch nicht gestartet</div>
+    </div>
+</div>
+
+<!-- --- Grid ----------------------------------------------- -->
+<div class="grid-card">
+    <div class="grid-toolbar">
+        <div class="grid-toolbar-left">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input class="grid-search" id="gridSearch" type="text" placeholder="Suchen…" />
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-wrap">
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="spinner"></div>
+        </div>
+        <div id="checklistenGrid" class="ag-theme-quartz"></div>
+    </div>
+
+    <div class="grid-meta">
+        <span id="rowCount">0</span> Einträge angezeigt
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/dist/ag-grid-community.min.js"></script>
+
+    <script>
+        let gridApi;
+        let allData = [];
+        let activeStatus = 'Alle';
+
+        /* -- Spalten-Definition ---------------------------- */
+        const columnDefs = [
+            {
+                field: 'nummer',
+                headerName: 'Nr.',
+                width: 75,
+                sortable: true
+            },
+            {
+                field: 'benennung',
+                headerName: 'Benennung',
+                flex: 2,
+                sortable: true,
+                filter: true
+            },
+            {
+                field: 'beschreibung',
+                headerName: 'Beschreibung',
+                flex: 3,
+                sortable: true,
+                filter: true
+            },
+            {
+                field: 'bemerkung',
+                headerName: 'Bemerkung',
+                flex: 2
+            },
+            {
+                field: 'dauer',
+                headerName: 'Dauer',
+                width: 100,
+                sortable: true
+            },
+            {
+                field: 'plandatum',
+                headerName: 'Plandatum',
+                width: 125,
+                sortable: true
+            },
+            {
+                field: 'dateCreated',
+                headerName: 'Erstellt',
+                width: 125,
+                sortable: true
+            },
+            {
+                field: 'bearbeiter',
+                headerName: 'Bearbeiter',
+                width: 155,
+                sortable: true
+            },
+            {
+                field: 'status',
+                headerName: 'Status',
+                width: 165,
+                sortable: true,
+                cellStyle: { display: 'flex', alignItems: 'center' },
+                cellRenderer: p => {
+                    const val = (p.value ?? '').trim();
+                    const low = val.toLowerCase();
+                    const cls = low === 'erledigt'       ? 'erledigt'
+                              : low === 'in bearbeitung' ? 'bearbeitung'
+                              : low === 'in planung'     ? 'planung'
+                              : 'default';
+                    return `<span class="status-text ${cls}">${val || '—'}</span>`;
+                }
+            }
+        ];
+
+        /* -- Grid ready ------------------------------------ */
+        function onGridReady(params) {
+            gridApi = params.api;
+
+                fetch('/pulse/Organisation/ITSicherheit/ITSicherheitsorganisationData')
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    allData = data;
+                    updateProgress(data);
+                    updateStats(data);
+                    applyFilter();
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                })
+                .catch(e => {
+                    console.error('Fehler beim Laden:', e);
+                    document.getElementById('loadingOverlay').innerHTML =
+                        '<span style="color:#f87171;font-size:0.85rem;">Fehler beim Laden der Daten</span>';
+                });
+        }
+
+        /* -- Fortschrittsbalken ---------------------------- */
+        function updateProgress(data) {
+            const total       = data.length;
+            const erledigt    = data.filter(r => norm(r.status) === 'erledigt').length;
+            const bearbeitung = data.filter(r => norm(r.status) === 'in bearbeitung').length;
+            const planung     = data.filter(r => norm(r.status) === 'in planung').length;
+
+            const pct = total > 0 ? Math.round((erledigt / total) * 100) : 0;
+
+            document.getElementById('progressPct').textContent     = pct + '%';
+            document.getElementById('segErledigt').style.width     = toPct(erledigt, total);
+            document.getElementById('segBearbeitung').style.width  = toPct(bearbeitung, total);
+            document.getElementById('segPlanung').style.width      = toPct(planung, total);
+            document.getElementById('cntErledigt').textContent     = erledigt;
+            document.getElementById('cntBearbeitung').textContent  = bearbeitung;
+            document.getElementById('cntPlanung').textContent      = planung;
+            document.getElementById('cntGesamt').textContent       = total;
+
+            // Farbe der Prozentzahl je nach Fortschritt
+            const el = document.getElementById('progressPct');
+            el.style.color = pct >= 80 ? '#22c55e'
+                           : pct >= 40 ? '#f59e0b'
+                           : '#f87171';
+        }
+
+        /* -- Stat-Karten befüllen -------------------------- */
+        function updateStats(data) {
+            document.getElementById('statAlle').textContent        = data.length;
+            document.getElementById('statErledigt').textContent    = data.filter(r => norm(r.status) === 'erledigt').length;
+            document.getElementById('statBearbeitung').textContent = data.filter(r => norm(r.status) === 'in bearbeitung').length;
+            document.getElementById('statPlanung').textContent     = data.filter(r => norm(r.status) === 'in planung').length;
+        }
+
+        /* -- Filter anwenden ------------------------------- */
+        function applyFilter() {
+            if (!gridApi) return;
+
+            const searchTerm = document.getElementById('gridSearch').value.toLowerCase();
+
+            let filtered = activeStatus === 'Alle'
+                ? allData
+                : allData.filter(r => norm(r.status) === activeStatus.toLowerCase());
+
+            if (searchTerm) {
+                filtered = filtered.filter(r =>
+                    Object.values(r).some(v =>
+                        v != null && String(v).toLowerCase().includes(searchTerm)
+                    )
+                );
+            }
+
+            gridApi.setRowData(filtered);
+            document.getElementById('rowCount').textContent = filtered.length;
+        }
+
+        /* -- Hilfsfunktionen ------------------------------- */
+        function norm(s) {
+            return (s ?? '').toLowerCase().trim();
+        }
+
+        function toPct(n, total) {
+            return total > 0 ? (n / total * 100).toFixed(2) + '%' : '0%';
+        }
+
+        /* -- DOMContentLoaded ------------------------------ */
+        document.addEventListener('DOMContentLoaded', () => {
+
+            /* Grid initialisieren */
+            agGrid.createGrid(document.getElementById('checklistenGrid'), {
+                columnDefs,
+                rowData: [],
+                pagination: true,
+                paginationPageSize: 25,
+                paginationPageSizeSelector: [10, 25, 50, 100],
+                animateRows: true,
+                defaultColDef: {
+                    resizable: true,
+                    cellStyle: { display: 'flex', alignItems: 'center' }
+                },
+                onGridReady
+            });
+
+            /* Stat-Karten als Filter */
+            document.querySelectorAll('.stat-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    activeStatus = card.dataset.status;
+                    applyFilter();
+                });
+            });
+
+            /* Suchfeld */
+            document.getElementById('gridSearch').addEventListener('input', applyFilter);
+        });
+    </script>
+}

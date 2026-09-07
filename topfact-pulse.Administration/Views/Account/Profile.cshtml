@@ -1,0 +1,245 @@
+@using topfact.Pulse.Models
+@model UserProfileViewModel
+
+@{
+    ViewData["Title"] = "Profil";
+}
+
+@section Styles {
+    <style>
+        /* ── Dark Mode (Standard) ── */
+        :root, [data-pulse-theme="dark"] {
+            --bg-page: #0f172a;
+            --bg-card: #1e293b;
+            --border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-subtle: #64748b;
+            --accent: #338562;
+        }
+
+        /* ── Light Mode ── */
+        [data-pulse-theme="light"] {
+            --bg-page: #f1f5f9;
+            --bg-card: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #475569;
+            --text-subtle: #64748b;
+            --accent: #338562;
+        }
+
+        body { background-color: var(--bg-page); color: var(--text-main); }
+
+        .profile-header {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .profile-name { font-size: 1.5rem; font-weight: 700; margin: 0; color: var(--text-main); }
+        .profile-meta { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
+
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-subtle);
+            letter-spacing: 0.05rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .prop-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem 2rem;
+        }
+
+        .prop-item {}
+        .prop-label { font-size: 0.75rem; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.03rem; margin-bottom: 0.15rem; }
+        .prop-value { font-size: 0.95rem; color: var(--text-main); word-break: break-all; }
+        .prop-value.empty { color: var(--text-muted); font-style: italic; }
+
+        .alert-card {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            color: #fca5a5;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        @@media (max-width: 768px) {
+            .prop-grid { grid-template-columns: 1fr; }
+            .profile-header { flex-direction: column; text-align: center; }
+        }
+    </style>
+}
+
+@{
+    var initials = "";
+    if (!string.IsNullOrEmpty(Model.Username))
+    {
+        var parts = Model.Username.Split(' ', '.', '\u0040');
+        initials = parts.Length >= 2
+            ? (parts[0][..1] + parts[1][..1]).ToUpper()
+            : Model.Username[..Math.Min(2, Model.Username.Length)].ToUpper();
+    }
+
+    // Bekannte API-Felder → deutsche Labels
+    var labelMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["UserId"] = "Benutzer-ID",
+        ["UserGuid"] = "Benutzer-GUID",
+        ["Username"] = "Benutzername",
+        ["UserNumber"] = "Benutzernummer",
+        ["EMail"] = "E-Mail",
+        ["Email"] = "E-Mail",
+        ["FirstName"] = "Vorname",
+        ["LastName"] = "Nachname",
+        ["DisplayName"] = "Anzeigename",
+        ["OrgId"] = "Tenant-ID",
+        ["OrgGuid"] = "Tenant-GUID",
+        ["OrgName"] = "Tenant",
+        ["Realm"] = "Realm",
+        ["AccessKey"] = "AccessKey",
+        ["Culture"] = "Sprache",
+        ["TimeZone"] = "Zeitzone",
+        ["IsActive"] = "Aktiv",
+        ["IsAdmin"] = "Administrator",
+        ["Created"] = "Erstellt am",
+        ["Modified"] = "Geändert am",
+        ["LastLogin"] = "Letzter Login",
+        ["Phone"] = "Telefon",
+        ["Mobile"] = "Mobil",
+        ["Department"] = "Abteilung",
+        ["Title"] = "Position",
+        ["Street"] = "Straße",
+        ["City"] = "Stadt",
+        ["Zip"] = "PLZ",
+        ["Country"] = "Land",
+    };
+}
+
+<div class="profile-header">
+    <div class="profile-avatar">
+        <img src="@Model.EffectiveAvatarUrl" alt="@Model.Username" onerror="this.style.display='none';this.parentElement.textContent='@initials'">
+    </div>
+    <div>
+        <h1 class="profile-name">@(Model.Username ?? "Unbekannt")</h1>
+        <div class="profile-meta">
+            @if (!string.IsNullOrEmpty(Model.Email))
+            {
+                <span><i class="ri-mail-line"></i> @Model.Email</span>
+            }
+            @if (!string.IsNullOrEmpty(Model.Realm))
+            {
+                <span class="ms-3"><i class="ri-building-line"></i> @Model.Realm</span>
+            }
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert-card">
+        <i class="ri-error-warning-line" style="font-size:1.3rem"></i>
+        <span>@Model.ErrorMessage</span>
+    </div>
+}
+
+<div class="section-card">
+    <div class="section-title">Kontoinformationen</div>
+    <div class="prop-grid">
+        <div class="prop-item">
+            <div class="prop-label">Benutzername</div>
+            <div class="prop-value">@(Model.Username ?? "–")</div>
+        </div>
+        <div class="prop-item">
+            <div class="prop-label">E-Mail</div>
+            <div class="prop-value">@(Model.Email ?? "–")</div>
+        </div>
+        <div class="prop-item">
+            <div class="prop-label">Benutzernummer</div>
+            <div class="prop-value">@(Model.UserNumber ?? "–")</div>
+        </div>
+        <div class="prop-item">
+            <div class="prop-label">Realm</div>
+            <div class="prop-value">@(Model.Realm ?? "–")</div>
+        </div>
+        <div class="prop-item">
+            <div class="prop-label">Benutzer-ID</div>
+            <div class="prop-value">@Model.UserId</div>
+        </div>
+        <div class="prop-item">
+            <div class="prop-label">Tenant-ID</div>
+            <div class="prop-value">@Model.OrgId</div>
+        </div>
+        <div class="prop-item">
+            <div class="prop-label">Benutzer-GUID</div>
+            <div class="prop-value">@(Model.UserGuid ?? "–")</div>
+        </div>
+        <div class="prop-item">
+            <div class="prop-label">Tenant-GUID</div>
+            <div class="prop-value">@(Model.OrgGuid ?? "–")</div>
+        </div>
+    </div>
+</div>
+
+@if (Model.ApiProperties.Count > 0)
+{
+    <div class="section-card">
+        <div class="section-title">API-Profildaten</div>
+        <div class="prop-grid">
+            @foreach (var kvp in Model.ApiProperties)
+            {
+                <div class="prop-item">
+                    <div class="prop-label">@(labelMap.TryGetValue(kvp.Key, out var label) ? label : kvp.Key)</div>
+                    <div class="prop-value @(string.IsNullOrEmpty(kvp.Value) ? "empty" : "")">
+                        @(string.IsNullOrEmpty(kvp.Value) ? "–" : kvp.Value)
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}

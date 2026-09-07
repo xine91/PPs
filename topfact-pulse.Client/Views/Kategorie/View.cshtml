@@ -1,0 +1,365 @@
+@using topfact.Pulse.Models
+@using topfact.Pulse.Services
+
+@{
+    ViewData["Title"] = ViewBag.Kategorie?.Title ?? "Kategorie";
+    Layout = "_Layout";
+
+    // ============ DEBUG: ViewBag Inhalte anzeigen ============
+    var debugKategorie = ViewBag.Kategorie as PulseKategorie;
+    var debugRows = ViewBag.Rows as List<Dictionary<string, object>>;
+    var debugColumns = ViewBag.Columns as List<string>;
+    var debugKpiValues = ViewBag.KpiValues as List<KpiValueDto>;
+    var debugRowCount = ViewBag.RowCount as int?;
+    var debugExecutedAt = ViewBag.ExecutedAt as string;
+    var debugSqlQuery = ViewBag.SqlQuery as string;
+
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] ============ View wird gerendert ============");
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] Kategorie: {debugKategorie?.Title ?? "NULL"} (ID={debugKategorie?.KategorieID.ToString() ?? "NULL"})");
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] SqlQuery: {(string.IsNullOrEmpty(debugSqlQuery) ? "LEER" : debugSqlQuery.Substring(0, Math.Min(50, debugSqlQuery.Length)))}");
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] Rows: {(debugRows == null ? "NULL" : debugRows.Count.ToString())}");
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] Columns: {(debugColumns == null ? "NULL" : string.Join(", ", debugColumns))}");
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] RowCount: {debugRowCount?.ToString() ?? "NULL"}");
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] ExecutedAt: {debugExecutedAt ?? "NULL"}");
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] KpiValues: {(debugKpiValues == null ? "NULL" : debugKpiValues.Count.ToString())}");
+
+    if (debugRows != null && debugRows.Count > 0)
+    {
+        Console.WriteLine($"[DEBUG Kategorie/View.cshtml] Erste Row: {System.Text.Json.JsonSerializer.Serialize(debugRows[0])}");
+    }
+
+    if (debugKpiValues != null)
+    {
+        foreach (var kpi in debugKpiValues)
+        {
+            Console.WriteLine($"[DEBUG Kategorie/View.cshtml] KPI: {kpi.Title} - Value={kpi.Value?.ToString() ?? "NULL"} - StatusMessage={kpi.StatusMessage ?? "NULL"}");
+        }
+    }
+    Console.WriteLine($"[DEBUG Kategorie/View.cshtml] ====================================================");
+    // ============ ENDE DEBUG ============
+}
+
+<div class="container-fluid mt-4">
+    <div class="page-header">
+        <h1 class="page-header">@ViewBag.Kategorie?.Title</h1>
+        @if (ViewBag.SqlQuery != null)
+        {
+            <p class="text-muted"><small>Datensatz</small></p>
+        }
+    </div>
+
+    <!-- KPIs Section -->
+    @if (ViewBag.KpiValues != null && ((List<KpiValueDto>)ViewBag.KpiValues).Count > 0)
+    {
+        <div class="kpi-container mt-4 mb-4">
+            <div class="kpi-grid">
+                @foreach (var kpi in (List<KpiValueDto>)ViewBag.KpiValues)
+                {
+                    <div class="kpi-card" style="border-left: 4px solid @(kpi.GetStatusColor());">
+                        <div class="kpi-header">
+                            <i class="@(kpi.IconCss ?? "ri-bar-chart-line")" style="color: @(kpi.GetStatusColor());"></i>
+                            <h5>@kpi.Title</h5>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(kpi.Description))
+                        {
+                            <p class="kpi-description">@kpi.Description</p>
+                        }
+                        <p class="kpi-value">
+                            @if (kpi.Value.HasValue)
+                            {
+                                <strong class="kpi-value-strong">@kpi.Value?.ToString("N0")</strong>
+                                @if (!string.IsNullOrWhiteSpace(kpi.Unit))
+                                {
+                                    <span class="kpi-unit">@kpi.Unit</span>
+                                }
+                            }
+                            else
+                            {
+                                <strong class="text-muted">–</strong>
+                            }
+                        </p>
+                        @if (!kpi.Value.HasValue && !string.IsNullOrWhiteSpace(kpi.StatusMessage))
+                        {
+                            <p class="kpi-status"><i class="ri-information-line"></i> @kpi.StatusMessage</p>
+                        }
+                        @if (kpi.TargetValue.HasValue)
+                        {
+                            <p class="kpi-target">
+                                Ziel: <strong>@kpi.TargetValue?.ToString("N0")</strong>
+                                @if (!string.IsNullOrWhiteSpace(kpi.Unit))
+                                {
+                                    <span class="kpi-unit">@kpi.Unit</span>
+                                }
+                            </p>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Tabelle Section -->
+    @if (ViewBag.Rows != null && ((List<Dictionary<string, object>>)ViewBag.Rows).Count > 0)
+    {
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="table-header">
+                    Daten
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="kategorieGrid" style="height: 500px;" class="ag-theme-quartz"></div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info mt-4">
+            Keine Daten verfügbar für diese Kategorie.
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/ag-grid-community.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const containerElement = document.getElementById('kategorieGrid');
+            if (!containerElement) {
+                console.warn('[DEBUG View.cshtml] kategorieGrid Container nicht gefunden');
+                return;
+            }
+
+            const rows = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((ViewBag.Rows as List<Dictionary<string, object>>) ?? new()));
+            const columns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((ViewBag.Columns as List<string>) ?? new()));
+
+            // ============ DEBUG: Daten im Browser ============
+            console.log('[DEBUG View.cshtml] ============ Client-side Daten ============');
+            console.log('[DEBUG View.cshtml] rows.length:', rows.length);
+            console.log('[DEBUG View.cshtml] columns:', columns);
+            console.log('[DEBUG View.cshtml] Erste Row:', rows.length > 0 ? rows[0] : 'KEINE');
+            console.log('[DEBUG View.cshtml] Window Location:', window.location.href);
+            console.log('[DEBUG View.cshtml] ============================================');
+
+            if (rows.length === 0) {
+                console.warn('[DEBUG View.cshtml] Keine Rows zum Anzeigen');
+                return;
+            }
+
+            const columnDefs = columns.map(col => ({
+                field: col,
+                headerName: col,
+                sortable: true,
+                filter: true
+            }));
+
+            const gridOptions = {
+                columnDefs: columnDefs,
+                rowData: rows,
+                pagination: true,
+                paginationPageSize: 20,
+                domLayout: 'normal'
+            };
+
+            new agGrid.Grid(containerElement, gridOptions);
+        });
+    </script>
+}
+
+<style>
+    .kpi-container {
+        margin: 2rem 0;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .kpi-card {
+        background: var(--card-bg, #ffffff);
+        border: 1px solid var(--border, #e8edf4);
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .kpi-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
+    }
+
+    .kpi-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .kpi-header i {
+        font-size: 1.5rem;
+    }
+
+    .kpi-header h5 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+
+    .kpi-description {
+        font-size: 0.85rem;
+        color: var(--text-muted, #64748b);
+        margin: 0.5rem 0;
+        line-height: 1.4;
+    }
+
+    .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-main, #1e293b);
+        margin: 0.75rem 0 0 0;
+    }
+
+    .kpi-value-strong {
+        color: #0000;
+    }
+
+    .kpi-unit {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-muted, #64748b);
+        margin-left: 0.5rem;
+    }
+
+    .kpi-target {
+        font-size: 0.85rem;
+        color: var(--text-muted, #64748b);
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--border, #e8edf4);
+    }
+
+    .kpi-status {
+        font-size: 0.8rem;
+        color: var(--text-muted, #94a3b8);
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+
+    .kpi-status i {
+        margin-right: 0.25rem;
+    }
+
+    /* Dark mode adjustments */
+   
+    [data-pulse-theme="dark"] .kpi-card,
+    [data-bs-theme="dark"] .kpi-card {
+        background: var(--card-bg-dark, #1e293b);
+        border: 1px solid var(--border-dark, #334155);
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+        [data-pulse-theme="dark"] .kpi-card:hover,
+        [data-bs-theme="dark"] .kpi-card:hover {
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+            transform: translateY(-2px);
+            border-color: var(--accent-color, #3b82f6);
+        }
+
+    [data-pulse-theme="dark"] .kpi-header,
+    [data-bs-theme="dark"] .kpi-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+        [data-pulse-theme="dark"] .kpi-header i,
+        [data-bs-theme="dark"] .kpi-header i {
+            font-size: 1.5rem;
+            color: var(--accent-color, #60a5fa);
+        }
+
+  
+
+    [data-pulse-theme="dark"] .kpi-value-stronrg ,
+    [data-bs-theme="dark"] .kpi-value-strong {
+        color: #ffff;
+    }
+
+    [data-pulse-theme="dark"] .table-header,
+    [data-bs-theme="dark"] .table-header {
+        color: #ffff;
+    }
+    [data-pulse-theme="dark"] .page-header,
+    [data-bs-theme="dark"] .page-header {
+        color: #ffff;
+    }
+        [data-pulse-theme="dark"] .kpi-header h5,
+        [data-bs-theme="dark"] .kpi-header h5 {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-main-dark, #f1f5f9);
+        }
+
+    [data-pulse-theme="dark"] .kpi-description,
+    [data-bs-theme="dark"] .kpi-description {
+        font-size: 0.85rem;
+        color: var(--text-muted-dark, #94a3b8);
+        margin: 0.5rem 0;
+        line-height: 1.4;
+    }
+
+    [data-pulse-theme="dark"] .kpi-value,
+    [data-bs-theme="dark"] .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-main-dark, #f8fafc);
+        margin: 0.75rem 0 0 0;
+    }
+
+    [data-pulse-theme="dark"] .kpi-unit,
+    [data-bs-theme="dark"] .kpi-unit {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-muted-dark, #94a3b8);
+        margin-left: 0.5rem;
+    }
+
+    [data-pulse-theme="dark"] .kpi-target,
+    [data-bs-theme="dark"] .kpi-target {
+        font-size: 0.85rem;
+        color: var(--text-muted-dark, #94a3b8);
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--border-dark, #334155);
+    }
+
+    [data-pulse-theme="dark"] .kpi-status,
+    [data-bs-theme="dark"] .kpi-status {
+        font-size: 0.8rem;
+        color: var(--text-muted-dark, #64748b);
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+
+        [data-pulse-theme="dark"] .kpi-status i,
+        [data-bs-theme="dark"] .kpi-status i {
+            margin-right: 0.25rem;
+        }
+
+    /* Hover-Effekt für KPI-Icon im Dark Theme */
+    [data-pulse-theme="dark"] .kpi-header i:hover,
+    [data-bs-theme="dark"] .kpi-header i:hover {
+        color: var(--accent-hover, #93c5fd);
+        transform: scale(1.1);
+        transition: all 0.2s ease;
+    }
+
+    }
+</style>

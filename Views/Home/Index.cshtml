@@ -1,0 +1,218 @@
+@using topfact.Pulse.Models
+@model DashboardViewModel
+
+@{
+    ViewData["Title"] = "Leitstand";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-theme-quartz.css" />
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/ag-grid-community.min.js"></script>
+
+    <style>
+        :root {
+            --bg-page: #0f172a;
+            --bg-card: #1e293b;
+            --border: #334155;
+            --text-main: #f8fafc; 
+        }
+
+        body { 
+            background-color: var(--bg-page); 
+            color: var(--text-main); 
+            font-family: 'Segoe UI', sans-serif; 
+            padding: 20px;
+            overflow-x: hidden; /* Verhindert horizontales Scrollen des Bodys */
+        }
+
+        /* Stat-Karten Layout */
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; text-align: center; }
+        .stat-value { font-size: 1.8rem; font-weight: bold; display: block; }
+        .stat-label { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 5px; }
+
+        /* Header Bereich */
+        .grid-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-top: 2rem; 
+            margin-bottom: 1rem; 
+        }
+        .search-input { 
+            background: var(--bg-card); 
+            border: 1px solid var(--border); 
+            color: white; 
+            padding: 10px 15px; 
+            border-radius: 8px; 
+            width: 350px; 
+            outline: none; 
+            transition: border-color 0.2s;
+            display: block;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        .search-input:focus { border-color: var(--grid-green-border); }
+
+        /* Grid Wrapper - Dynamische Höhe */
+        .grid-wrapper { 
+            border-radius: 12px; 
+            overflow: hidden; 
+            border: 1px solid var(--grid-green-border); 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        .ag-theme-quartz {
+            /* Die Tabelle passt sich jetzt der Bildschirmhöhe an */
+            height: calc(100vh - 320px); 
+            min-height: 500px;
+            width: 100%;
+            --ag-background-color: #1e293b;
+            --ag-header-background-color: #0f172a;
+            --ag-border-color: #334155;
+            --ag-secondary-border-color: #334155;
+        }
+
+        /* Ampeln Styling */
+        .status-cell { display: flex; justify-content: center; align-items: center; height: 100%; width: 100%; }
+        .header-center .ag-header-cell-label { justify-content: center; }
+        
+        /* Scrollbar Optimierung */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--grid-green-border); }
+    </style>
+}
+
+<div class="row g-3">
+    <div class="col-md-3"><div class="stat-card"><span class="stat-label">Gesamt Server</span><span class="stat-value">@Model.TotalServers.ToString("N0")</span></div></div>
+    <div class="col-md-3"><div class="stat-card"><span class="stat-label">Systeme Online</span><span class="stat-value" style="color:#10b981">@Model.OnlineServers.ToString("N0")</span></div></div>
+    <div class="col-md-3"><div class="stat-card"><span class="stat-label">Kritische Fehler</span><span class="stat-value" style="color:#ef4444">@Model.OfflineServers.ToString("N0")</span></div></div>
+    <div class="col-md-3"><div class="stat-card"><span class="stat-label">Warnung</span><span class="stat-value" style="color:#f59e0b">@Model.ServersWithErrors.ToString("N0")</span></div></div>
+</div>
+
+<input type="text" id="grid-search" class="search-input" placeholder="Schnellsuche (Tenant)" oninput="onSearchChange()">
+
+<div class="grid-wrapper">
+    <div id="serverGrid" class="ag-theme-quartz"></div>
+</div>
+
+<script>
+    const rowData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Servers));
+    let gridApi;
+
+    function statusRenderer(params) {
+        if (params.value === undefined || params.value === null) return '';
+        const colors = { 0: "#10b981", 1: "#f59e0b", 2: "#ef4444" };
+        const color = colors[params.value] || "#4b5563";
+        return `<div class="status-cell"><span style="width:12px;height:12px;border-radius:50%;background:${color};box-shadow:0 0 10px ${color};"></span></div>`;
+    }
+
+    const columnDefs = [
+        { 
+            field: "Name1", 
+            headerName: "Tenant", 
+            flex: 2, 
+            minWidth: 350,
+            sort: 'asc',
+            filter: 'agTextColumnFilter',
+            pinned: 'left',
+                cellRenderer: function(params) {
+                if (!params.value) return '';
+                const link = document.createElement('a');
+                link.href = '@Url.Action("Leitstand", "Home")' + '?org=' + encodeURIComponent(params.value);
+                link.textContent = params.value;
+                const isDark = document.documentElement.getAttribute('data-pulse-theme') === 'dark';
+                link.style.color = isDark ? '#f1f5f9' : '#0f172a';
+                link.style.textDecoration = 'none';
+                link.style.cursor = 'pointer';
+                link.addEventListener('mouseenter', function() { this.style.textDecoration = 'underline'; });
+                link.addEventListener('mouseleave', function() { this.style.textDecoration = 'none'; });
+                return link;
+            }
+        },
+        {
+            headerName: "System-Checks",
+            headerClass: 'header-center',
+            children: [
+                { field: "GesamtStatusCode", headerName: "Status", cellRenderer: statusRenderer, width: 90, headerClass: 'header-center' },
+                { field: "VersionStatusCode", headerName: "Versionen", cellRenderer: statusRenderer, width: 80, headerClass: 'header-center' },
+                { field: "DiskStatusCode", headerName: "Disk", cellRenderer: statusRenderer, width: 80, headerClass: 'header-center' },
+                { field: "CpuStatusCode", headerName: "CPU", cellRenderer: statusRenderer, width: 80, headerClass: 'header-center' },
+                { field: "ActiveUsersStatusCode", headerName: "User", cellRenderer: statusRenderer, width: 80, headerClass: 'header-center' },
+                { field: "EmailDailyStatusCode", headerName: "Mail", cellRenderer: statusRenderer, width: 80, headerClass: 'header-center' },
+                { field: "BackupStatusCode", headerName: "Backup", cellRenderer: statusRenderer, width: 90, headerClass: 'header-center' }
+            ]
+        }
+    ];
+
+    const gridOptions = {
+        rowData: rowData,
+        columnDefs: columnDefs,
+        defaultColDef: {
+            resizable: true,
+            sortable: true,
+            filter: true,
+            suppressMovable: true
+        },
+        localeText: {
+                page: 'Seite',
+                more: 'mehr',
+                to: 'bis',
+                of: 'von',
+                next: 'Nächste',
+                last: 'Letzte',
+                first: 'Erste',
+                previous: 'Vorherige',
+                loadingOoo: 'Lade...',
+                // Important for page size selector:
+                pageSizeSelectorLabel: 'Zeilen pro Seite',
+                pageSize: 'Zeilen pro Seite',
+                // fallback for older AG Grid
+                pageSizeSelector: 'Zeilen pro Seite',
+            },
+        pagination: true,
+        paginationPageSize: 100,
+        paginationPageSizeSelector: [50, 100, 200],
+        rowHeight: 45,
+        headerHeight: 40,
+        groupHeaderHeight: 40,
+        onGridReady: (params) => {
+            gridApi = params.api;
+            // Automatische Breitenverteilung beim Start
+            setTimeout(() => params.api.sizeColumnsToFit(), 200);
+        }
+    };
+
+    function onSearchChange() {
+        if (gridApi) {
+            gridApi.setGridOption('quickFilterText', document.getElementById('grid-search').value);
+        }
+    }
+
+    // Grid beim Resize des Fensters anpassen
+    window.addEventListener('resize', () => {
+        if (gridApi) {
+            gridApi.sizeColumnsToFit();
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const gridDiv = document.querySelector("#serverGrid");
+        if (typeof agGrid !== 'undefined' && rowData) {
+            gridApi = agGrid.createGrid(gridDiv, gridOptions);
+        }
+
+        // Re-render link colors when theme switches
+        const observer = new MutationObserver(function() {
+            if (!gridApi) return;
+            const isDark = document.documentElement.getAttribute('data-pulse-theme') === 'dark';
+            const color = isDark ? '#f1f5f9' : '#0f172a';
+            document.querySelectorAll('#serverGrid a').forEach(function(a) {
+                a.style.color = color;
+            });
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-pulse-theme'] });
+    });
+</script>

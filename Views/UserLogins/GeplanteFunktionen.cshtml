@@ -1,0 +1,298 @@
+@using topfact.Pulse.Models
+@model GeplanteFunktionenViewModel
+
+@{
+    ViewData["Title"] = "Geplante Funktionen";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-theme-quartz.css" />
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/ag-grid-community.min.js"></script>
+    <style>
+        :root {
+            --bg-page: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #0f1e33;
+            --border: #2a3a55;
+            --border-subtle: #334155;
+            --text-main: #f0f6ff;
+            --text-muted: #6b82a8;
+            --accent: #338562;
+            --accent-hover: #3fa876;
+            --accent-glow: rgba(51, 133, 98, 0.25);
+        }
+
+        body { background-color: var(--bg-page); color: var(--text-main); }
+
+        .filter-shell {
+            background: #1a2640;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px 24px 22px;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+        .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 130px; }
+
+        .filter-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .filter-select {
+            appearance: none;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            color: var(--text-main);
+            font-size: 13px;
+            padding: 9px 12px;
+            width: 100%;
+        }
+
+        .time-segments {
+            display: flex;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 3px;
+            gap: 2px;
+        }
+
+        .time-seg {
+            flex: 1;
+            text-align: center;
+            padding: 7px 4px;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            border: none;
+            background: transparent;
+        }
+
+        .time-seg.active {
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .date-pair { display: flex; gap: 8px; align-items: center; }
+        .filter-date {
+            appearance: none;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            color: var(--text-main);
+            font-size: 13px;
+            padding: 9px 10px;
+            width: 100%;
+            color-scheme: dark;
+        }
+
+        .btn-apply {
+            background: var(--accent);
+            border: none;
+            border-radius: 9px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 10px 20px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .content-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .content-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin: 0;
+        }
+
+        .search-input {
+            appearance: none;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 13px;
+            padding: 7px 12px;
+            width: 240px;
+        }
+
+        .ag-theme-quartz {
+            height: 560px;
+            width: 100%;
+        }
+        [data-pulse-theme="dark"] .ag-theme-quartz {
+            --ag-background-color: #1e293b;
+            --ag-header-background-color: #0f172a;
+            --ag-border-color: #334155;
+        }
+    </style>
+}
+
+<form method="post" id="filterForm">
+    <input type="hidden" name="selectedDays" id="selectedDaysInput" value="@Model.SelectedDays" />
+
+    <div class="filter-shell">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label class="filter-label" for="bearbeiterSelect">Bearbeiter</label>
+                <select id="bearbeiterSelect" name="selectedBearbeiter" class="filter-select">
+                    <option value="">Alle Bearbeiter</option>
+                    @foreach (var b in Model.AvailableBearbeiter)
+                    {
+                        if (b == Model.SelectedBearbeiter)
+                        {
+                            <option value="@b" selected>@b</option>
+                        }
+                        else
+                        {
+                            <option value="@b">@b</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label" for="firmaSelect">Firma</label>
+                <select id="firmaSelect" name="selectedFirma" class="filter-select">
+                    <option value="">Alle Firmen</option>
+                    @foreach (var f in Model.AvailableFirmen)
+                    {
+                        if (f == Model.SelectedFirma)
+                        {
+                            <option value="@f" selected>@f</option>
+                        }
+                        else
+                        {
+                            <option value="@f">@f</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="filter-group" style="flex: 1.5; min-width: 210px;">
+                <span class="filter-label">Zeitraum</span>
+                <div class="time-segments" id="timeSegs">
+                    <button type="button" class="time-seg @(Model.SelectedDays == -1 ? "active" : "")" data-val="-1">Kein Datum</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 7 ? "active" : "")" data-val="7">7 Tage</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 30 ? "active" : "")" data-val="30">1 Mon.</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 90 ? "active" : "")" data-val="90">3 Mon.</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 180 ? "active" : "")" data-val="180">6 Mon.</button>
+                    <button type="button" class="time-seg @(Model.SelectedDays == 365 ? "active" : "")" data-val="365">1 Jahr</button>
+                </div>
+            </div>
+
+            <div class="filter-group" style="flex: 1.8; min-width: 230px;">
+                <span class="filter-label">Benutzerdefiniert</span>
+                <div class="date-pair">
+                    <input type="date" id="dateFrom" name="dateFrom" class="filter-date" value="@Model.DateFrom?.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")">
+                    <span style="color:var(--text-muted)">→</span>
+                    <input type="date" id="dateTo" name="dateTo" class="filter-date" value="@Model.DateTo?.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-apply">Laden</button>
+        </div>
+    </div>
+</form>
+
+<script>
+    (function () {
+        var segs = document.querySelectorAll('.time-seg');
+        var hiddenInput = document.getElementById('selectedDaysInput');
+        var dateFrom = document.getElementById('dateFrom');
+        var dateTo = document.getElementById('dateTo');
+
+        segs.forEach(function (seg) {
+            seg.addEventListener('click', function () {
+                segs.forEach(function (s) { s.classList.remove('active'); });
+                seg.classList.add('active');
+                hiddenInput.value = seg.dataset.val;
+                dateFrom.value = '';
+                dateTo.value = '';
+            });
+        });
+
+        [dateFrom, dateTo].forEach(function (input) {
+            input.addEventListener('change', function () {
+                if (input.value) {
+                    segs.forEach(function (s) { s.classList.remove('active'); });
+                    hiddenInput.value = '0';
+                }
+            });
+        });
+    })();
+</script>
+
+<div class="content-card">
+    <div class="content-card-header">
+        <input type="text" id="grid-search" class="search-input" placeholder="Bearbeiter, Firma, Titel suchen ...">
+        <span class="card-title">Geplante Funktionen</span>
+    </div>
+    <div id="plannedFunctionsGrid" class="ag-theme-quartz"></div>
+</div>
+
+@section Scripts {
+    <script>
+        const rowData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Entries));
+
+        const columnDefs = [
+            { field: 'Datum', headerName: 'Datum', flex: 1.1, valueFormatter: p => p.value ? new Date(p.value).toLocaleDateString('de-DE') : '' },
+            { field: 'Bearbeiter', headerName: 'Bearbeiter', flex: 1.5, filter: true },
+            { field: 'Name1', headerName: 'Firma', flex: 1.5, filter: true },
+            { field: 'Titel', headerName: 'Titel', flex: 1.8 },
+            { field: 'Benennung', headerName: 'Benennung', flex: 1.4 },
+            { field: 'Stunden', headerName: 'Stunden', flex: 0.9, type: 'numericColumn' },
+            { field: 'Status', headerName: 'Status', flex: 1 },
+            { field: 'StartDatum', headerName: 'Startdatum', flex: 1.1, valueFormatter: p => p.value ? new Date(p.value).toLocaleDateString('de-DE') : '' }
+        ];
+
+        const gridOptions = {
+            rowData: rowData,
+            columnDefs: columnDefs,
+            defaultColDef: { resizable: true, sortable: true, filter: true },
+            pagination: true,
+            paginationPageSize: 20,
+            onGridReady: (params) => {
+                window.gridApi = params.api;
+                params.api.sizeColumnsToFit();
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            agGrid.createGrid(document.querySelector('#plannedFunctionsGrid'), gridOptions);
+
+            document.getElementById('grid-search').addEventListener('input', (e) => {
+                if (window.gridApi) window.gridApi.setGridOption('quickFilterText', e.target.value);
+            });
+        });
+    </script>
+}

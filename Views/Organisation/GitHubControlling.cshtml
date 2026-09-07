@@ -1,0 +1,428 @@
+@{
+    ViewData["Title"] = "GitHub Controlling";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-theme-quartz.css" />
+
+    <style>
+        /* ─── Page Header ─────────────────────────────── */
+        .page-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:.75rem; margin-bottom:1.5rem; }
+        .page-header-left h1 { font-size:1.5rem; font-weight:700; color:#f1f5f9; margin:0 0 .2rem; letter-spacing:-.02em; }
+        .page-header-left .crumb { font-size:.7rem; font-weight:700; color:#338562; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.4rem; }
+        .page-header-left p { color:#64748b; font-size:.85rem; margin:0; }
+
+        /* ─── KPI Strip ───────────────────────────────── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: .75rem;
+            margin-bottom: 1.25rem;
+        }
+        .kpi-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,.06);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--kpi-color, #475569); border-radius: 12px 12px 0 0;
+        }
+        .kpi-label { font-size: .7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .3rem; display:flex; align-items:center; gap:.35rem; }
+        .kpi-label i { font-size:.85rem; color: var(--kpi-color, #64748b); }
+        .kpi-value { font-size: 1.75rem; font-weight: 700; color: #f1f5f9; line-height: 1; font-variant-numeric: tabular-nums; }
+        .kpi-sub   { font-size: .7rem; color: #475569; margin-top: .3rem; }
+
+        .kpi-card[data-kpi="total"]   { --kpi-color: #338562; }
+        .kpi-card[data-kpi="prs"]     { --kpi-color: #a78bfa; }
+        .kpi-card[data-kpi="prs"]     .kpi-value { color:#a78bfa; }
+        .kpi-card[data-kpi="issues"]  { --kpi-color: #fbbf24; }
+        .kpi-card[data-kpi="issues"]  .kpi-value { color:#fbbf24; }
+        .kpi-card[data-kpi="draft"]   { --kpi-color: #94a3b8; }
+        .kpi-card[data-kpi="labels"]  { --kpi-color: #38bdf8; }
+
+        /* ─── Tabs ────────────────────────────────────── */
+        .gh-tabs { display:flex; gap:.35rem; margin-bottom:1rem; border-bottom:1px solid rgba(255,255,255,.08); padding-bottom:.5rem; }
+        .gh-tab {
+            font-size:.82rem; font-weight:600; color:#64748b;
+            background:transparent; border:none; cursor:pointer;
+            padding:.45rem .9rem; border-radius:8px 8px 0 0;
+            display:inline-flex; align-items:center; gap:.4rem;
+            transition: color .15s, background .15s;
+        }
+        .gh-tab:hover { color:#e2e8f0; background:rgba(255,255,255,.05); }
+        .gh-tab.active { color:#fff; background:#338562; }
+        .gh-tab-count { font-size:.72rem; background:rgba(255,255,255,.15); border-radius:10px; padding:.1rem .45rem; font-variant-numeric:tabular-nums; }
+
+        /* ─── Grid card ───────────────────────────────── */
+        .grid-card { background:#1e293b; border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:1.1rem 1.25rem .75rem; }
+        .grid-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.6rem; margin-bottom:.9rem; }
+        .grid-toolbar-left  { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+        .grid-toolbar-right { display:flex; gap:.5rem; align-items:center; }
+
+        .search-wrap { position:relative; }
+        .search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#64748b; pointer-events:none; }
+        .grid-search {
+            background:#0f172a; border:1px solid rgba(255,255,255,.08); border-radius:8px;
+            color:#e2e8f0; font-size:.82rem; padding:.42rem .75rem .42rem 2rem;
+            width:260px; outline:none; transition:border-color .15s;
+        }
+        .grid-search::placeholder { color:#475569; }
+        .grid-search:focus { border-color:rgba(51,133,98,.5); }
+
+        #ghGrid { width:100%; height:calc(100vh - 400px); min-height:380px; }
+        .grid-meta { font-size:.75rem; color:#475569; padding-top:.5rem; text-align:right; }
+
+        /* ─── Cells ───────────────────────────────────── */
+        .pr-number { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight:700; color:#a78bfa; font-size:.8rem; }
+        .issue-number { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight:700; color:#fbbf24; font-size:.8rem; }
+        .draft-badge { font-size:.65rem; font-weight:700; color:#94a3b8; background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.25); border-radius:4px; padding:.1rem .4rem; margin-left:.35rem; }
+        .label-chip {
+            display:inline-block; font-size:.65rem; font-weight:600;
+            border-radius:999px; padding:.1rem .5rem; margin:.1rem .15rem .1rem 0;
+            background:rgba(51,133,98,.18); color:#4ade80; border:1px solid rgba(51,133,98,.3);
+        }
+        .pr-link { color:#60a5fa; text-decoration:none; }
+        .pr-link:hover { text-decoration:underline; color:#93c5fd; }
+
+        /* ─── Error banner ────────────────────────────── */
+        .error-banner {
+            background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.3);
+            color:#f87171; border-radius:10px; padding:.85rem 1.1rem;
+            font-size:.85rem; margin-bottom:1rem; display:none;
+        }
+        .error-banner i { margin-right:.5rem; }
+
+        /* ─── Loading ─────────────────────────────────── */
+        .loading-row { display:flex; align-items:center; gap:.75rem; color:#64748b; font-size:.85rem; padding:1.5rem; }
+        .spin { animation: spin .7s linear infinite; }
+        @@keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ─── Config hint ─────────────────────────────── */
+        .config-hint {
+            background:rgba(51,133,98,.08); border:1px solid rgba(51,133,98,.25);
+            color:#94a3b8; border-radius:10px; padding:1rem 1.25rem;
+            font-size:.82rem; margin-bottom:1rem; display:none;
+        }
+        .config-hint code { background:rgba(255,255,255,.08); border-radius:4px; padding:.1rem .4rem; font-size:.78rem; color:#e2e8f0; }
+
+        /* Light theme */
+        [data-pulse-theme="light"] .kpi-card        { background:#ffffff; border-color:#eef1f7; }
+        [data-pulse-theme="light"] .kpi-label        { color:#64748b; }
+        [data-pulse-theme="light"] .kpi-value        { color:#1e293b; }
+        [data-pulse-theme="light"] .kpi-sub          { color:#94a3b8; }
+        [data-pulse-theme="light"] .grid-card        { background:#ffffff; border-color:#eef1f7; }
+        [data-pulse-theme="light"] .grid-search      { background:#f8fafc; border-color:#e2e8f0; color:#1e293b; }
+        [data-pulse-theme="light"] .gh-tab           { color:#64748b; }
+        [data-pulse-theme="light"] .gh-tab:hover     { background:rgba(0,0,0,.04); color:#1e293b; }
+        [data-pulse-theme="light"] .gh-tab.active    { background:#338562; color:#fff; }
+        [data-pulse-theme="light"] .gh-tabs          { border-color:#eef1f7; }
+        [data-pulse-theme="light"] .page-header-left h1 { color:#1e293b; }
+        [data-pulse-theme="light"] .page-header-left p  { color:#64748b; }
+    </style>
+}
+
+<!-- ─── Page Header ──────────────────────────────────────── -->
+<div class="page-header">
+    <div class="page-header-left">
+        <div class="crumb">Organisation · Management-Übersicht</div>
+        <h1><i class="ri-github-line" style="color:#a78bfa;"></i> GitHub Controlling</h1>
+        <p id="repoSubtitle">Offene Pull Requests &amp; Issues im Backlog</p>
+    </div>
+    <div>
+        <button class="btn btn-sm" onclick="refreshData()" style="background:#338562;color:#fff;border:none;border-radius:8px;padding:.45rem 1rem;font-size:.82rem;font-weight:600;display:inline-flex;align-items:center;gap:.4rem;">
+            <i class="ri-refresh-line"></i> Aktualisieren
+        </button>
+    </div>
+</div>
+
+<!-- ─── Error Banner ─────────────────────────────────────── -->
+<div id="errorBanner" class="error-banner">
+    <i class="ri-error-warning-line"></i><span id="errorMsg"></span>
+</div>
+<div id="configHint" class="config-hint">
+    <strong>Konfiguration erforderlich:</strong> Bitte trage in der <code>appsettings.json</code> folgende Werte ein:<br><br>
+    <code>"GitHub": { "PersonalAccessToken": "ghp_...", "Owner": "dein-org", "Repository": "dein-repo" }</code>
+</div>
+
+<!-- ─── KPI Strip ─────────────────────────────────────────── -->
+<div class="kpi-grid">
+    <div class="kpi-card" data-kpi="prs">
+        <div class="kpi-label"><i class="ri-git-pull-request-line"></i> Offene Pull Requests</div>
+        <div class="kpi-value" id="kpiPRs">—</div>
+        <div class="kpi-sub">State: open</div>
+    </div>
+    <div class="kpi-card" data-kpi="draft">
+        <div class="kpi-label"><i class="ri-draft-line"></i> Draft PRs</div>
+        <div class="kpi-value" id="kpiDraft">—</div>
+        <div class="kpi-sub">noch nicht fertig zur Review</div>
+    </div>
+    <div class="kpi-card" data-kpi="issues">
+        <div class="kpi-label"><i class="ri-bug-line"></i> Offene Issues</div>
+        <div class="kpi-value" id="kpiIssues">—</div>
+        <div class="kpi-sub">Backlog &amp; Bugs</div>
+    </div>
+    <div class="kpi-card" data-kpi="total">
+        <div class="kpi-label"><i class="ri-git-repository-line"></i> Gesamt offen</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub">PRs + Issues</div>
+    </div>
+    <div class="kpi-card" data-kpi="labels">
+        <div class="kpi-label"><i class="ri-price-tag-3-line"></i> Letzte Aktualisierung</div>
+        <div class="kpi-value" style="font-size:1.1rem;" id="kpiLastRefresh">—</div>
+        <div class="kpi-sub">Daten aus GitHub API</div>
+    </div>
+</div>
+
+<!-- ─── Tabs + Grid ──────────────────────────────────────── -->
+<div class="grid-card">
+    <div class="gh-tabs">
+        <button class="gh-tab active" data-tab="prs" onclick="switchTab('prs', this)">
+            <i class="ri-git-pull-request-line"></i> Pull Requests
+            <span class="gh-tab-count" id="tabCountPRs">—</span>
+        </button>
+        <button class="gh-tab" data-tab="issues" onclick="switchTab('issues', this)">
+            <i class="ri-bug-line"></i> Issues / Backlog
+            <span class="gh-tab-count" id="tabCountIssues">—</span>
+        </button>
+    </div>
+
+    <div class="grid-toolbar">
+        <div class="grid-toolbar-left">
+            <div class="search-wrap">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" class="grid-search" id="ghSearch" placeholder="Suchen…" oninput="onSearch(this.value)" />
+            </div>
+        </div>
+        <div class="grid-toolbar-right" id="loadingIndicator" style="display:none;">
+            <i class="ri-loader-4-line spin" style="color:#64748b;"></i>
+            <span style="font-size:.8rem;color:#64748b;">Lade Daten…</span>
+        </div>
+    </div>
+
+    <div id="ghGrid" class="ag-theme-quartz-dark"></div>
+    <div class="grid-meta" id="gridMeta"></div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/dist/ag-grid-community.min.js"></script>
+    <script>
+        let gridApi = null;
+        let allPRs = [];
+        let allIssues = [];
+        let currentTab = 'prs';
+
+        const colDefsPR = [
+            {
+                headerName: '#', field: 'number', width: 80,
+                cellRenderer: p => `<a class="pr-link" href="${p.data.url}" target="_blank" rel="noopener">#${p.value}</a>`
+            },
+            {
+                headerName: 'Titel', field: 'title', flex: 3, minWidth: 260, sortable: true, filter: true,
+                cellRenderer: p => {
+                    const draft = p.data.draft ? `<span class="draft-badge">DRAFT</span>` : '';
+                    return `<span style="color:#e2e8f0;">${escHtml(p.value ?? '')}${draft}</span>`;
+                }
+            },
+            {
+                headerName: 'Autor', field: 'user', width: 130, sortable: true, filter: true,
+                cellRenderer: p => `<span style="color:#94a3b8;">${escHtml(p.value ?? '')}</span>`
+            },
+            {
+                headerName: 'Labels', field: 'labels', flex: 1, minWidth: 140,
+                cellRenderer: p => (p.value ?? []).map(l => `<span class="label-chip">${escHtml(l ?? '')}</span>`).join('')
+            },
+            {
+                headerName: 'Milestone', field: 'milestone', width: 140, sortable: true, filter: true,
+                cellRenderer: p => p.value ? `<span style="color:#38bdf8;">${escHtml(p.value)}</span>` : `<span style="color:#334155;">—</span>`
+            },
+            {
+                headerName: 'Assignees', field: 'assignees', width: 140,
+                cellRenderer: p => (p.value ?? []).map(a => `<span style="color:#64748b;font-size:.78rem;">${escHtml(a ?? '')}</span>`).join(', ') || '<span style="color:#334155;">—</span>'
+            },
+            {
+                headerName: 'Erstellt', field: 'createdAt', width: 115, sortable: true,
+                valueFormatter: p => formatDate(p.value),
+                cellRenderer: p => `<span style="color:#64748b;font-size:.78rem;">${formatDate(p.value)}</span>`
+            },
+            {
+                headerName: 'Geändert', field: 'updatedAt', width: 115, sortable: true,
+                valueFormatter: p => formatDate(p.value),
+                cellRenderer: p => `<span style="color:#64748b;font-size:.78rem;">${formatDate(p.value)}</span>`
+            },
+        ];
+
+        const colDefsIssue = [
+            {
+                headerName: '#', field: 'number', width: 80,
+                cellRenderer: p => `<a class="pr-link" href="${p.data.url}" target="_blank" rel="noopener" style="color:#fbbf24;">#${p.value}</a>`
+            },
+            {
+                headerName: 'Titel', field: 'title', flex: 3, minWidth: 260, sortable: true, filter: true,
+                cellRenderer: p => `<span style="color:#e2e8f0;">${escHtml(p.value ?? '')}</span>`
+            },
+            {
+                headerName: 'Autor', field: 'user', width: 130, sortable: true, filter: true,
+                cellRenderer: p => `<span style="color:#94a3b8;">${escHtml(p.value ?? '')}</span>`
+            },
+            {
+                headerName: 'Labels', field: 'labels', flex: 1, minWidth: 140,
+                cellRenderer: p => (p.value ?? []).map(l => `<span class="label-chip">${escHtml(l ?? '')}</span>`).join('')
+            },
+            {
+                headerName: 'Milestone', field: 'milestone', width: 140, sortable: true, filter: true,
+                cellRenderer: p => p.value ? `<span style="color:#38bdf8;">${escHtml(p.value)}</span>` : `<span style="color:#334155;">—</span>`
+            },
+            {
+                headerName: 'Assignees', field: 'assignees', width: 140,
+                cellRenderer: p => (p.value ?? []).map(a => `<span style="color:#64748b;font-size:.78rem;">${escHtml(a ?? '')}</span>`).join(', ') || '<span style="color:#334155;">—</span>'
+            },
+            {
+                headerName: 'Kommentare', field: 'comments', width: 110, sortable: true,
+                cellRenderer: p => `<span style="color:#64748b;font-size:.78rem;font-variant-numeric:tabular-nums;">${p.value ?? 0}</span>`
+            },
+            {
+                headerName: 'Erstellt', field: 'createdAt', width: 115, sortable: true,
+                valueFormatter: p => formatDate(p.value),
+                cellRenderer: p => `<span style="color:#64748b;font-size:.78rem;">${formatDate(p.value)}</span>`
+            },
+            {
+                headerName: 'Geändert', field: 'updatedAt', width: 115, sortable: true,
+                valueFormatter: p => formatDate(p.value),
+                cellRenderer: p => `<span style="color:#64748b;font-size:.78rem;">${formatDate(p.value)}</span>`
+            },
+        ];
+
+        function escHtml(str) {
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function formatDate(val) {
+            if (!val) return '—';
+            const d = new Date(val);
+            if (isNaN(d)) return '—';
+            return d.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+        }
+
+        function initGrid(colDefs, rowData) {
+            if (gridApi) {
+                gridApi.destroy();
+                gridApi = null;
+            }
+            const isDark = !document.documentElement.getAttribute('data-pulse-theme') ||
+                           document.documentElement.getAttribute('data-pulse-theme') === 'dark';
+            const theme = isDark ? 'ag-theme-quartz-dark' : 'ag-theme-quartz';
+            const el = document.getElementById('ghGrid');
+            el.className = theme;
+
+            gridApi = agGrid.createGrid(el, {
+                columnDefs: colDefs,
+                rowData: rowData,
+                defaultColDef: { resizable: true, suppressMovable: false },
+                animateRows: true,
+                rowHeight: 40,
+                suppressCellFocus: true,
+                onGridReady: () => updateMeta()
+            });
+        }
+
+        function updateMeta() {
+            if (!gridApi) return;
+            const count = gridApi.getDisplayedRowCount();
+            const label = currentTab === 'prs' ? 'Pull Requests' : 'Issues';
+            document.getElementById('gridMeta').textContent = `${count} ${label} angezeigt`;
+        }
+
+        function switchTab(tab, btn) {
+            currentTab = tab;
+            document.querySelectorAll('.gh-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('ghSearch').value = '';
+            if (tab === 'prs') {
+                initGrid(colDefsPR, allPRs);
+            } else {
+                initGrid(colDefsIssue, allIssues);
+            }
+            updateMeta();
+        }
+
+        function onSearch(val) {
+            if (!gridApi) return;
+            gridApi.setGridOption('quickFilterText', val);
+            updateMeta();
+        }
+
+        function showError(msg) {
+            const banner = document.getElementById('errorBanner');
+            document.getElementById('errorMsg').textContent = msg;
+            banner.style.display = 'block';
+
+            if (msg.includes('Konfiguration')) {
+                document.getElementById('configHint').style.display = 'block';
+            }
+        }
+
+        function hideError() {
+            document.getElementById('errorBanner').style.display = 'none';
+            document.getElementById('configHint').style.display = 'none';
+        }
+
+        async function refreshData() {
+            hideError();
+            document.getElementById('loadingIndicator').style.display = 'flex';
+            document.getElementById('kpiPRs').textContent   = '…';
+            document.getElementById('kpiDraft').textContent  = '…';
+            document.getElementById('kpiIssues').textContent = '…';
+            document.getElementById('kpiTotal').textContent  = '…';
+
+            try {
+                const [prRes, issueRes] = await Promise.all([
+                    fetch('/pulse/Organisation/GitHubControlling/GetPullRequests'),
+                    fetch('/pulse/Organisation/GitHubControlling/GetIssues')
+                ]);
+
+                const prData    = await prRes.json();
+                const issueData = await issueRes.json();
+
+                if (prData.error) { showError(prData.error); return; }
+                if (issueData.error) { showError(issueData.error); return; }
+
+                allPRs    = prData;
+                allIssues = issueData;
+
+                const draftCount = allPRs.filter(p => p.draft).length;
+
+                document.getElementById('kpiPRs').textContent    = allPRs.length;
+                document.getElementById('kpiDraft').textContent  = draftCount;
+                document.getElementById('kpiIssues').textContent = allIssues.length;
+                document.getElementById('kpiTotal').textContent  = allPRs.length + allIssues.length;
+                document.getElementById('kpiLastRefresh').textContent = new Date().toLocaleTimeString('de-DE');
+
+                document.getElementById('tabCountPRs').textContent    = allPRs.length;
+                document.getElementById('tabCountIssues').textContent = allIssues.length;
+
+                if (currentTab === 'prs') {
+                    initGrid(colDefsPR, allPRs);
+                } else {
+                    initGrid(colDefsIssue, allIssues);
+                }
+                updateMeta();
+
+            } catch (err) {
+                showError('Netzwerkfehler: ' + err.message);
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initGrid(colDefsPR, []);
+            refreshData();
+        });
+    </script>
+}

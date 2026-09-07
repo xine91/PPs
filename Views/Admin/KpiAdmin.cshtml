@@ -1,0 +1,658 @@
+@{
+    ViewData["Title"] = "KPI Administration";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+<style>
+    /* ── Page layout ─────────────────────────────────────────── */
+    .admin-page { display: flex; flex-direction: column; gap: 1.5rem; }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+    .admin-header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+    .admin-header p  { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+
+    /* ── KPI preview grid ────────────────────────────────────── */
+    .kpi-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+    .kpi-preview-card {
+        background: var(--card-bg, #1e293b);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: box-shadow .15s, transform .15s;
+        position: relative;
+    }
+    .kpi-preview-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.12); transform: translateY(-2px); }
+    .kpi-preview-card.inactive { opacity: .5; }
+    .kpi-card-icon { font-size: 1.6rem; }
+    .kpi-card-title { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+    .kpi-card-value { font-size: 2rem; font-weight: 700; color: var(--text-main); line-height: 1; }
+    .kpi-card-meta  { font-size: 0.75rem; color: var(--text-muted); }
+    .kpi-card-deviation { font-size: 0.8rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 6px; width: fit-content; }
+    .kpi-card-deviation.ok     { background: #dcfce7; color: #166534; }
+    .kpi-card-deviation.warn   { background: #fef9c3; color: #854d0e; }
+    .kpi-card-deviation.danger { background: #fee2e2; color: #991b1b; }
+    [data-pulse-theme="dark"] .kpi-card-deviation.ok     { background: rgba(22,101,52,.3); color: #86efac; }
+    [data-pulse-theme="dark"] .kpi-card-deviation.warn   { background: rgba(133,77,14,.3); color: #fde047; }
+    [data-pulse-theme="dark"] .kpi-card-deviation.danger { background: rgba(153,27,27,.3); color: #fca5a5; }
+    .kpi-bereich-badge {
+        position: absolute; top: .75rem; right: .75rem;
+        font-size: 0.65rem; font-weight: 700; padding: .15rem .45rem;
+        border-radius: 6px; background: var(--accent); color: #fff; opacity: .8;
+    }
+    .kpi-add-card {
+        border: 2px dashed var(--border);
+        background: transparent;
+        display: flex; align-items: center; justify-content: center;
+        flex-direction: column; gap: .4rem;
+        min-height: 130px; border-radius: 12px; cursor: pointer;
+        color: var(--text-muted); transition: border-color .15s, color .15s;
+        font-size: .85rem;
+    }
+    .kpi-add-card:hover { border-color: var(--accent); color: var(--accent); }
+    .kpi-add-card i { font-size: 1.6rem; }
+
+    /* ── Table view ──────────────────────────────────────────── */
+    .admin-table-wrap { overflow-x: auto; }
+    .admin-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .admin-table th, .admin-table td { padding: .6rem .9rem; border-bottom: 1px solid var(--border); text-align: left; }
+    .admin-table th { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); }
+    .admin-table tr:hover td { background: var(--nav-hover); }
+    .admin-table .badge-active   { background: #dcfce7; color: #166534; padding: .15rem .5rem; border-radius: 6px; font-size: .72rem; font-weight: 700; }
+    .admin-table .badge-inactive { background: #f1f5f9; color: #64748b; padding: .15rem .5rem; border-radius: 6px; font-size: .72rem; font-weight: 700; }
+    [data-pulse-theme="dark"] .admin-table .badge-active   { background: rgba(22,101,52,.3); color: #86efac; }
+    [data-pulse-theme="dark"] .admin-table .badge-inactive { background: rgba(100,116,139,.2); color: #94a3b8; }
+
+    /* ── Toolbar ─────────────────────────────────────────────── */
+    .admin-toolbar { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+    .admin-toolbar input[type=search] {
+        background: var(--card-bg, #1e293b); border: 1px solid var(--border);
+        color: var(--text-main); border-radius: 8px; padding: .35rem .75rem; font-size: .85rem; width: 220px;
+    }
+    .view-toggle { display: flex; gap: .25rem; }
+    .view-toggle button {
+        background: none; border: 1px solid var(--border); color: var(--text-muted);
+        border-radius: 6px; padding: .3rem .55rem; font-size: 1rem; cursor: pointer; transition: .15s;
+    }
+    .view-toggle button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* ── Modal ───────────────────────────────────────────────── */
+    .kpi-modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 2000;
+        display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .kpi-modal {
+        background: var(--card-bg, #1e293b); border: 1px solid var(--border);
+        border-radius: 16px; width: 100%; max-width: 680px; max-height: 90vh;
+        overflow-y: auto; padding: 2rem;
+        box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .kpi-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .kpi-modal-header h2 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+    .kpi-modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted); line-height: 1; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-grid .span2 { grid-column: 1 / -1; }
+    .form-group label { font-size: .78rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: .3rem; text-transform: uppercase; letter-spacing: .03em; }
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%; background: var(--bg-main, #0f172a); border: 1px solid var(--border);
+        color: var(--text-main); border-radius: 8px; padding: .45rem .75rem; font-size: .85rem;
+        transition: border-color .15s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        outline: none; border-color: var(--accent); box-shadow: 0 0 0 .15rem rgba(51,133,98,.2);
+    }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    .modal-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1.5rem; flex-wrap: wrap; }
+    .btn-primary-pulse {
+        background: var(--accent); color: #fff; border: none; border-radius: 8px;
+        padding: .5rem 1.25rem; font-size: .875rem; font-weight: 600; cursor: pointer; transition: .15s;
+    }
+    .btn-primary-pulse:hover { filter: brightness(1.1); }
+    .btn-secondary-pulse {
+        background: none; border: 1px solid var(--border); color: var(--text-muted);
+        border-radius: 8px; padding: .5rem 1.25rem; font-size: .875rem; font-weight: 600; cursor: pointer; transition: .15s;
+    }
+    .btn-secondary-pulse:hover { background: var(--nav-hover); }
+    .btn-danger-pulse {
+        background: none; border: 1px solid #ef4444; color: #ef4444;
+        border-radius: 8px; padding: .5rem 1.25rem; font-size: .875rem; font-weight: 600; cursor: pointer; transition: .15s;
+        margin-right: auto;
+    }
+    .btn-danger-pulse:hover { background: rgba(239,68,68,.1); }
+    .run-query-wrap { display: flex; gap: .5rem; align-items: flex-end; }
+    .run-query-wrap button { white-space: nowrap; padding: .45rem .9rem; font-size: .8rem; }
+    .query-result {
+        margin-top: .5rem; font-size: .82rem; padding: .4rem .75rem; border-radius: 6px;
+        background: var(--nav-hover); color: var(--text-muted);
+    }
+    .query-result.ok    { background: #dcfce7; color: #166534; }
+    .query-result.error { background: #fee2e2; color: #991b1b; }
+    [data-pulse-theme="dark"] .query-result.ok    { background: rgba(22,101,52,.3); color: #86efac; }
+    [data-pulse-theme="dark"] .query-result.error { background: rgba(153,27,27,.3); color: #fca5a5; }
+
+    /* ── Section card ────────────────────────────────────────── */
+    .section-card {
+        background: var(--card-bg, #1e293b); border: 1px solid var(--border);
+        border-radius: 12px; padding: 1.5rem;
+    }
+    .section-card-header { display: flex; align-items: center; gap: .6rem; margin-bottom: 1.25rem; }
+    .section-card-header h2 { font-size: 1rem; font-weight: 700; margin: 0; }
+    .section-card-header i { font-size: 1.2rem; color: var(--accent); }
+
+    /* Filter bar */
+    .filter-chips { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .filter-chip {
+        background: none; border: 1px solid var(--border); color: var(--text-muted);
+        border-radius: 20px; padding: .25rem .8rem; font-size: .78rem; font-weight: 600; cursor: pointer; transition: .15s;
+    }
+    .filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+</style>
+}
+
+<div class="admin-page">
+
+    <!-- Header -->
+    <div class="admin-header">
+        <div>
+            <h1><i class="ri-settings-3-line" style="color:var(--accent)"></i> KPI Administration</h1>
+            <p>KPI-Karten definieren, Zielwerte und Abweichungen festlegen</p>
+        </div>
+        <button class="btn-primary-pulse" onclick="openModal(null)">
+            <i class="ri-add-line"></i> Neue KPI-Karte
+        </button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="admin-toolbar">
+        <input type="search" id="kpiSearch" placeholder="Suchen …" oninput="renderAll()" />
+        <div class="filter-chips" id="bereichChips">
+            <button class="filter-chip active" data-bereich="">Alle</button>
+        </div>
+        <div class="view-toggle" style="margin-left:auto">
+            <button id="btnGrid" class="active" title="Karten-Ansicht" onclick="setView('grid')"><i class="ri-layout-grid-line"></i></button>
+            <button id="btnList" title="Listen-Ansicht" onclick="setView('list')"><i class="ri-list-check"></i></button>
+        </div>
+    </div>
+
+    <!-- KPI Preview (grid) -->
+    <div id="kpiGridView" class="section-card">
+        <div class="section-card-header">
+            <i class="ri-dashboard-3-line"></i><h2>Vorschau</h2>
+        </div>
+        <div class="kpi-preview-grid" id="kpiGrid">
+            <div class="d-flex align-items-center justify-content-center p-4 text-muted" id="kpiGridEmpty">
+                <span><i class="ri-loader-4-line"></i> Lade …</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table view (hidden by default) -->
+    <div id="kpiListView" class="section-card" hidden>
+        <div class="section-card-header">
+            <i class="ri-table-line"></i><h2>Alle KPI-Definitionen</h2>
+        </div>
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Titel</th>
+                        <th>Bereich</th>
+                        <th>Zielwert</th>
+                        <th>Toleranz</th>
+                        <th>Einheit</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="kpiTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── Edit Modal ──────────────────────────────────────────────────────────── -->
+<div class="kpi-modal-overlay" id="kpiModalOverlay" hidden onclick="overlayClick(event)">
+    <div class="kpi-modal" id="kpiModal">
+        <div class="kpi-modal-header">
+            <h2 id="modalTitle">KPI-Karte</h2>
+            <button class="kpi-modal-close" onclick="closeModal()"><i class="ri-close-line"></i></button>
+        </div>
+
+        <div class="form-grid">
+            <!-- Row 1 -->
+            <div class="form-group span2">
+                <label>Titel *</label>
+                <input type="text" id="fTitle" placeholder="z. B. Offene Vorgänge" maxlength="150" />
+            </div>
+
+            <!-- Row 2 -->
+            <div class="form-group">
+                <label>Bereich</label>
+                <select id="fBereich">
+                    <option value="">— wählen —</option>
+                    <option value="Organisation">Organisation</option>
+                    <option value="Technik">Technik</option>
+                    <option value="Monitor">Monitor</option>
+                    <option value="Allgemein">Allgemein</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Einheit</label>
+                <input type="text" id="fUnit" placeholder="Stück, %, h …" maxlength="30" />
+            </div>
+
+            <!-- Row 3 -->
+            <div class="form-group">
+                <label>Icon (Remix Icon CSS)</label>
+                <input type="text" id="fIcon" placeholder="ri-bar-chart-line" maxlength="80" />
+            </div>
+            <div class="form-group">
+                <label>Farbe</label>
+                <input type="color" id="fColor" value="#338562" style="height:38px; padding:.2rem .4rem;" />
+            </div>
+
+            <!-- Row 4 -->
+            <div class="form-group">
+                <label>Zielwert</label>
+                <input type="number" id="fTargetValue" placeholder="z. B. 100" step="any" />
+            </div>
+            <div class="form-group">
+                <label>Toleranz (absolut ±)</label>
+                <input type="number" id="fToleranceAbsolute" placeholder="z. B. 10" step="any" />
+            </div>
+
+            <div class="form-group">
+                <label>Toleranz (%)</label>
+                <input type="number" id="fTolerancePercent" placeholder="z. B. 5" step="any" min="0" max="100" />
+            </div>
+            <div class="form-group">
+                <label>Sortierung</label>
+                <input type="number" id="fSortOrder" value="10" />
+            </div>
+
+            <!-- Row 5 -->
+            <div class="form-group span2">
+                <label>Datenquelle (Tabellenname / View)</label>
+                <select id="fDataSource" onchange="onDataSourceChange()">
+                    <option value="">— lade Quellen … —</option>
+                </select>
+            </div>
+
+            <!-- Row 6 -->
+            <div class="form-group span2">
+                <label>SQL-Abfrage (für Ist-Wert)</label>
+                <div class="run-query-wrap">
+                    <textarea id="fQuerySql" placeholder="SELECT COUNT(*) FROM dbo.Pulse_VorgangSnapshot WHERE ..." maxlength="2000" style="min-height:70px;"></textarea>
+                </div>
+                <div style="display:flex; gap:.5rem; margin-top:.4rem;">
+                    <button class="btn-secondary-pulse" style="font-size:.78rem; padding:.3rem .8rem;" onclick="runQuery()">
+                        <i class="ri-play-line"></i> Abfrage testen
+                    </button>
+                    <span id="queryResult" class="query-result" hidden></span>
+                </div>
+            </div>
+
+            <!-- Row 7 -->
+            <div class="form-group span2">
+                <label>Beschreibung / Tooltip</label>
+                <textarea id="fDescription" placeholder="Kurzbeschreibung der KPI …" maxlength="500"></textarea>
+            </div>
+
+            <!-- Row 8 -->
+            <div class="form-group span2" style="display:flex; align-items:center; gap:.75rem;">
+                <input type="checkbox" id="fIsActive" style="width:auto;" />
+                <label for="fIsActive" style="margin:0; font-size:.85rem; text-transform:none; letter-spacing:0;">Aktiv (wird in Dashboards angezeigt)</label>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-danger-pulse" id="btnDelete" onclick="deleteKpi()" hidden>
+                <i class="ri-delete-bin-line"></i> Löschen
+            </button>
+            <button class="btn-secondary-pulse" onclick="closeModal()">Abbrechen</button>
+            <button class="btn-primary-pulse" onclick="saveKpi()">
+                <i class="ri-save-line"></i> Speichern
+            </button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let allKpis = [];
+    let currentView = 'grid';
+    let editingId = 0;
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadKpis();
+        await loadDataSources();
+    });
+
+    async function loadKpis() {
+        try {
+            const res = await fetch('/Admin/KpiAdmin/List');
+            allKpis = await res.json();
+            buildBereichChips();
+            renderAll();
+        } catch (e) {
+            console.error('Fehler beim Laden der KPIs:', e);
+        }
+    }
+
+    async function loadDataSources() {
+        try {
+            const res = await fetch('/pulse/Admin/KpiAdmin/DataSources');
+            const sources = await res.json();
+            const sel = document.getElementById('fDataSource');
+            sel.innerHTML = '<option value="">— wählen —</option>';
+            if (sources.error) {
+                sel.innerHTML += `<option disabled>${sources.error}</option>`;
+                return;
+            }
+            let lastType = '';
+            sources.forEach(s => {
+                if (s.type !== lastType) {
+                    const og = document.createElement('optgroup');
+                    og.label = s.type === 'BASE TABLE' ? 'Tabellen' : 'Views';
+                    sel.appendChild(og);
+                    lastType = s.type;
+                }
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                opt.textContent = s.name;
+                sel.appendChild(opt);
+            });
+        } catch {}
+    }
+
+    // ── Chips ────────────────────────────────────────────────────────────────
+    function buildBereichChips() {
+        const bereiche = [...new Set(allKpis.map(k => k.bereich).filter(Boolean))].sort();
+        const wrap = document.getElementById('bereichChips');
+        wrap.innerHTML = '<button class="filter-chip active" data-bereich="" onclick="filterBereich(this)">Alle</button>';
+        bereiche.forEach(b => {
+            wrap.innerHTML += `<button class="filter-chip" data-bereich="${b}" onclick="filterBereich(this)">${b}</button>`;
+        });
+    }
+
+    function filterBereich(btn) {
+        document.querySelectorAll('#bereichChips .filter-chip').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        renderAll();
+    }
+
+    function getActiveBereich() {
+        const active = document.querySelector('#bereichChips .filter-chip.active');
+        return active ? active.dataset.bereich : '';
+    }
+
+    // ── Render ───────────────────────────────────────────────────────────────
+    function renderAll() {
+        const q = (document.getElementById('kpiSearch').value || '').toLowerCase();
+        const b = getActiveBereich();
+        const filtered = allKpis.filter(k => {
+            const matchQ = !q || k.title.toLowerCase().includes(q) || (k.description || '').toLowerCase().includes(q);
+            const matchB = !b || k.bereich === b;
+            return matchQ && matchB;
+        });
+
+        if (currentView === 'grid') renderGrid(filtered);
+        else renderTable(filtered);
+    }
+
+    function renderGrid(items) {
+        const grid = document.getElementById('kpiGrid');
+        grid.innerHTML = '';
+        items.forEach(k => {
+            const card = document.createElement('div');
+            card.className = 'kpi-preview-card' + (k.isActive ? '' : ' inactive');
+            card.onclick = () => openModal(k.id);
+            const devHtml = buildDeviationHtml(k);
+            card.innerHTML = `
+                <i class="${k.iconCss || 'ri-bar-chart-line'} kpi-card-icon" style="color:${k.color || 'var(--accent)'}"></i>
+                <div class="kpi-card-title">${esc(k.title)}</div>
+                <div class="kpi-card-value" id="val_${k.id}">—</div>
+                <div class="kpi-card-meta">${k.targetValue != null ? `Ziel: ${k.targetValue}${k.unit ? ' ' + k.unit : ''}` : (k.unit || '')}</div>
+                ${devHtml}
+                ${k.bereich ? `<span class="kpi-bereich-badge">${esc(k.bereich)}</span>` : ''}
+            `;
+            grid.appendChild(card);
+            // fire live query
+            if (k.querySql) fetchLiveValue(k);
+        });
+        // Add-card
+        const add = document.createElement('div');
+        add.className = 'kpi-add-card';
+        add.onclick = () => openModal(null);
+        add.innerHTML = '<i class="ri-add-circle-line"></i><span>Neue KPI hinzufügen</span>';
+        grid.appendChild(add);
+    }
+
+    function renderTable(items) {
+        const tbody = document.getElementById('kpiTableBody');
+        tbody.innerHTML = '';
+        items.forEach(k => {
+            const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            tr.onclick = () => openModal(k.id);
+            tr.innerHTML = `
+                <td>${k.id}</td>
+                <td><i class="${k.iconCss || 'ri-bar-chart-line'}" style="color:${k.color || 'var(--accent)'}; margin-right:.4rem;"></i>${esc(k.title)}</td>
+                <td>${esc(k.bereich || '—')}</td>
+                <td>${k.targetValue ?? '—'}</td>
+                <td>${k.toleranceAbsolute != null ? '±' + k.toleranceAbsolute : (k.tolerancePercent != null ? '±' + k.tolerancePercent + '%' : '—')}</td>
+                <td>${esc(k.unit || '—')}</td>
+                <td><span class="${k.isActive ? 'badge-active' : 'badge-inactive'}">${k.isActive ? 'Aktiv' : 'Inaktiv'}</span></td>
+                <td><button class="btn-secondary-pulse" style="padding:.2rem .6rem;font-size:.75rem;" onclick="event.stopPropagation();openModal(${k.id})"><i class="ri-edit-line"></i></button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Keine KPIs gefunden.</td></tr>';
+        }
+    }
+
+    async function fetchLiveValue(k) {
+        try {
+            const res = await fetch('/pulse/Admin/KpiAdmin/RunQuery', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sql: k.querySql })
+            });
+            const data = await res.json();
+            const el = document.getElementById(`val_${k.id}`);
+            if (!el) return;
+            if (data.error) { el.textContent = 'Fehler'; return; }
+            const val = data.value;
+            el.textContent = val != null ? formatNum(val) + (k.unit ? ' ' + k.unit : '') : '—';
+            // Update deviation badge
+            const devEl = el.closest('.kpi-preview-card')?.querySelector('.kpi-card-deviation');
+            if (devEl && k.targetValue != null && val != null)
+                updateDeviationEl(devEl, val, k);
+        } catch {}
+    }
+
+    function buildDeviationHtml(k) {
+        if (k.targetValue == null) return '';
+        return `<div class="kpi-card-deviation" id="dev_${k.id}">Abw. wird berechnet …</div>`;
+    }
+
+    function updateDeviationEl(el, val, k) {
+        const diff = val - k.targetValue;
+        const pct  = k.targetValue !== 0 ? (diff / k.targetValue) * 100 : 0;
+        const absDiff = Math.abs(diff);
+        let cls = 'ok';
+        if (k.toleranceAbsolute != null && absDiff > k.toleranceAbsolute) cls = absDiff > k.toleranceAbsolute * 2 ? 'danger' : 'warn';
+        else if (k.tolerancePercent != null && Math.abs(pct) > k.tolerancePercent) cls = Math.abs(pct) > k.tolerancePercent * 2 ? 'danger' : 'warn';
+        el.className = `kpi-card-deviation ${cls}`;
+        const sign = diff >= 0 ? '+' : '';
+        el.textContent = `Abw.: ${sign}${formatNum(diff)}${k.unit ? ' ' + k.unit : ''} (${sign}${pct.toFixed(1)}%)`;
+    }
+
+    // ── View toggle ──────────────────────────────────────────────────────────
+    function setView(v) {
+        currentView = v;
+        document.getElementById('kpiGridView').hidden = v !== 'grid';
+        document.getElementById('kpiListView').hidden = v !== 'list';
+        document.getElementById('btnGrid').classList.toggle('active', v === 'grid');
+        document.getElementById('btnList').classList.toggle('active', v === 'list');
+        renderAll();
+    }
+
+    // ── Modal ────────────────────────────────────────────────────────────────
+    async function openModal(id) {
+        editingId = id ?? 0;
+        resetForm();
+
+        if (id) {
+            const res = await fetch(`/pulse/Admin/KpiAdmin/Get/${id}`);
+            if (!res.ok) return;
+            const k = await res.json();
+            document.getElementById('fTitle').value           = k.title || '';
+            document.getElementById('fBereich').value         = k.bereich || '';
+            document.getElementById('fUnit').value            = k.unit || '';
+            document.getElementById('fIcon').value            = k.iconCss || '';
+            document.getElementById('fColor').value           = k.color || '#338562';
+            document.getElementById('fTargetValue').value     = k.targetValue ?? '';
+            document.getElementById('fToleranceAbsolute').value = k.toleranceAbsolute ?? '';
+            document.getElementById('fTolerancePercent').value  = k.tolerancePercent ?? '';
+            document.getElementById('fSortOrder').value       = k.sortOrder ?? 10;
+            document.getElementById('fDataSource').value      = k.dataSource || '';
+            document.getElementById('fQuerySql').value        = k.querySql || '';
+            document.getElementById('fDescription').value     = k.description || '';
+            document.getElementById('fIsActive').checked      = k.isActive ?? true;
+            document.getElementById('modalTitle').textContent = 'KPI bearbeiten';
+            document.getElementById('btnDelete').hidden = false;
+        } else {
+            document.getElementById('modalTitle').textContent = 'Neue KPI-Karte';
+            document.getElementById('btnDelete').hidden = true;
+        }
+
+        document.getElementById('kpiModalOverlay').hidden = false;
+    }
+
+    function closeModal() {
+        document.getElementById('kpiModalOverlay').hidden = true;
+        document.getElementById('queryResult').hidden = true;
+    }
+
+    function overlayClick(e) {
+        if (e.target === document.getElementById('kpiModalOverlay')) closeModal();
+    }
+
+    function resetForm() {
+        ['fTitle','fBereich','fUnit','fIcon','fDataSource','fQuerySql','fDescription'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('fColor').value = '#338562';
+        document.getElementById('fTargetValue').value = '';
+        document.getElementById('fToleranceAbsolute').value = '';
+        document.getElementById('fTolerancePercent').value = '';
+        document.getElementById('fSortOrder').value = '10';
+        document.getElementById('fIsActive').checked = true;
+        document.getElementById('queryResult').hidden = true;
+    }
+
+    function onDataSourceChange() {
+        const src = document.getElementById('fDataSource').value;
+        if (!src) return;
+        const sql = document.getElementById('fQuerySql');
+        if (!sql.value) sql.value = `SELECT COUNT(*) FROM ${src}`;
+    }
+
+    async function saveKpi() {
+        const title = document.getElementById('fTitle').value.trim();
+        if (!title) { alert('Bitte einen Titel eingeben.'); return; }
+
+        const dto = {
+            id:                editingId,
+            title,
+            description:       document.getElementById('fDescription').value.trim() || null,
+            iconCss:           document.getElementById('fIcon').value.trim() || 'ri-bar-chart-line',
+            color:             document.getElementById('fColor').value,
+            bereich:           document.getElementById('fBereich').value,
+            dataSource:        document.getElementById('fDataSource').value || null,
+            querySql:          document.getElementById('fQuerySql').value.trim() || null,
+            targetValue:       parseNumOrNull(document.getElementById('fTargetValue').value),
+            toleranceAbsolute: parseNumOrNull(document.getElementById('fToleranceAbsolute').value),
+            tolerancePercent:  parseNumOrNull(document.getElementById('fTolerancePercent').value),
+            unit:              document.getElementById('fUnit').value.trim() || null,
+            sortOrder:         parseInt(document.getElementById('fSortOrder').value) || 10,
+            isActive:          document.getElementById('fIsActive').checked,
+        };
+
+        const res = await fetch('/pulse/Admin/KpiAdmin/Save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dto)
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeModal();
+            await loadKpis();
+        } else {
+            alert('Fehler beim Speichern: ' + JSON.stringify(data));
+        }
+    }
+
+    async function deleteKpi() {
+        if (!editingId) return;
+        if (!confirm('KPI-Karte wirklich löschen?')) return;
+        const res = await fetch(`/pulse/Admin/KpiAdmin/Delete/${editingId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) { closeModal(); await loadKpis(); }
+        else alert('Fehler: ' + JSON.stringify(data));
+    }
+
+    async function runQuery() {
+        const sql = document.getElementById('fQuerySql').value.trim();
+        const el  = document.getElementById('queryResult');
+        if (!sql) { el.textContent = 'Kein SQL eingegeben.'; el.className = 'query-result error'; el.hidden = false; return; }
+        el.textContent = 'Wird ausgeführt …'; el.className = 'query-result'; el.hidden = false;
+        try {
+            const res = await fetch('/pulse/Admin/KpiAdmin/RunQuery', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sql })
+            });
+            const data = await res.json();
+            if (data.error) {
+                el.textContent = '⚠ ' + data.error;
+                el.className = 'query-result error';
+            } else {
+                el.textContent = `✓ Ergebnis: ${data.value ?? 'NULL'}`;
+                el.className = 'query-result ok';
+            }
+        } catch (e) {
+            el.textContent = 'Fehler: ' + e.message;
+            el.className = 'query-result error';
+        }
+        el.hidden = false;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function parseNumOrNull(v) {
+        if (v === '' || v == null) return null;
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n;
+    }
+    function formatNum(n) {
+        if (n == null) return '—';
+        return Number.isInteger(n) ? n.toLocaleString('de-DE') : n.toLocaleString('de-DE', { maximumFractionDigits: 2 });
+    }
+    function esc(str) {
+        if (!str) return '';
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+</script>
+}

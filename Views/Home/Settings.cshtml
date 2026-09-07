@@ -1,0 +1,453 @@
+@model topfact.Pulse.Models.NavigationSettingsViewModel
+@{
+    ViewData["Title"] = "Navigation verwalten";
+    var bereich = ViewContext.RouteData.Values["bereich"]?.ToString();
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-theme-quartz.css" />
+    <style>
+        .settings-grid-wrap {
+            height: 260px;
+            width: 100%;
+        }
+
+        .settings-grid-wrap .ag-cell {
+            display: flex;
+            align-items: center;
+        }
+
+        .settings-grid-select {
+            width: 100%;
+            max-width: 100%;
+            background: #111827;
+            color: #e5e7eb;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 4px 8px;
+        }
+
+        .settings-grid-action {
+            width: 100%;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            background: #111827;
+            color: #e5e7eb;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        .settings-grid-action:hover {
+            background: #1f2937;
+        }
+
+        [data-pulse-theme="light"] .settings-grid-action {
+            background: #ffffff;
+            color: #1e293b;
+            border-color: #e8edf4;
+        }
+
+        [data-pulse-theme="light"] .settings-grid-action:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .settings-editor-section {
+            display: none;
+        }
+
+        .settings-editor-section.show {
+            display: block;
+        }
+    </style>
+}
+
+<div class="container-fluid">
+    <h1 class="mb-4 text-light">@ViewData["Title"]</h1>
+
+    <div class="card bg-dark border-secondary mb-4">
+        <div class="card-header">Navigation Steuerung</div>
+        <div class="card-body">
+            <div id="navigationControlGrid" class="ag-theme-quartz settings-grid-wrap"></div>
+        </div>
+    </div>
+
+
+    <div class="row g-4">
+        <div id="modeEditorSection" class="col-12 col-xl-4 settings-editor-section">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header">Abteilung @(Model.ModeForm.UiModeId > 0 ? "bearbeiten" : "anlegen")</div>
+                <div class="card-body">
+                    <form asp-action="SaveMode" asp-route-bereich="@bereich" method="post">
+                        <input asp-for="ModeForm.UiModeId" type="hidden" />
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+                        <div class="mb-2">
+                            <label asp-for="ModeForm.DisplayName" class="form-label"></label>
+                            <input asp-for="ModeForm.DisplayName" class="form-control" />
+                            <span asp-validation-for="ModeForm.DisplayName" class="text-danger"></span>
+                        </div>
+                        <div class="mb-2">
+                            <label asp-for="ModeForm.SortOrder" class="form-label"></label>
+                            <input asp-for="ModeForm.SortOrder" class="form-control" />
+                        </div>
+                        <div class="form-check mb-3">
+                            <input asp-for="ModeForm.IsActive" class="form-check-input" />
+                            <label asp-for="ModeForm.IsActive" class="form-check-label">Aktiv</label>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">Speichern</button>
+                        @if (Model.ModeForm.UiModeId > 0)
+                        {
+                            <button type="submit"
+                                    class="btn btn-outline-danger"
+                                    formaction="@Url.Action("DeleteMode", "Home", new { bereich })"
+                                    formmethod="post"
+                                    name="uiModeId"
+                                    value="@Model.ModeForm.UiModeId"
+                                    onclick="return confirm('Abteilung wirklich löschen?');">
+                                Löschen
+                            </button>
+                        }
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="categoryEditorSection" class="col-12 col-xl-4 settings-editor-section">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header">Kategorie @(Model.CategoryForm.UiCategoryId > 0 ? "bearbeiten" : "anlegen")</div>
+                <div class="card-body">
+                    <form asp-action="SaveCategory" asp-route-bereich="@bereich" method="post">
+                        <input asp-for="CategoryForm.UiCategoryId" type="hidden" />
+
+                        <div class="mb-2">
+                            <label asp-for="CategoryForm.UiModeId" class="form-label">Kategorie</label>
+                            <select asp-for="CategoryForm.UiModeId" class="form-select">
+                                <option value="">Bitte wählen</option>
+                                @foreach (var mode in Model.Modes)
+                                {
+                                    <option value="@mode.UiModeId">@mode.DisplayName (@mode.Code)</option>
+                                }
+                            </select>
+                            <span asp-validation-for="CategoryForm.UiModeId" class="text-danger"></span>
+                        </div>
+                        <div class="mb-2">
+                            <label asp-for="CategoryForm.DisplayName" class="form-label"></label>
+                            <input asp-for="CategoryForm.DisplayName" class="form-control" />
+                            <span asp-validation-for="CategoryForm.DisplayName" class="text-danger"></span>
+                        </div>
+                        <div class="mb-2">
+                            <label asp-for="CategoryForm.SortOrder" class="form-label"></label>
+                            <input asp-for="CategoryForm.SortOrder" class="form-control" />
+                        </div>
+                        <div class="form-check mb-1">
+                            <input asp-for="CategoryForm.IsCollapsible" class="form-check-input" />
+                            <label asp-for="CategoryForm.IsCollapsible" class="form-check-label">Einklappbar</label>
+                        </div>
+                        <div class="form-check mb-1">
+                            <input asp-for="CategoryForm.IsExpandedDefault" class="form-check-input" />
+                            <label asp-for="CategoryForm.IsExpandedDefault" class="form-check-label">Standardmäßig geöffnet</label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input asp-for="CategoryForm.IsActive" class="form-check-input" />
+                            <label asp-for="CategoryForm.IsActive" class="form-check-label">Aktiv</label>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">Speichern</button>
+                        @if (Model.CategoryForm.UiCategoryId > 0)
+                        {
+                            <button type="submit"
+                                    class="btn btn-outline-danger"
+                                    formaction="@Url.Action("DeleteCategory", "Home", new { bereich })"
+                                    formmethod="post"
+                                    name="uiCategoryId"
+                                    value="@Model.CategoryForm.UiCategoryId"
+                                    onclick="return confirm('Kategorie wirklich löschen?');">
+                                Löschen
+                            </button>
+                        }
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="itemEditorSection" class="col-12 col-xl-4 settings-editor-section">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header">KategorieSeite @(Model.ItemForm.UiNavItemId > 0 ? "bearbeiten" : "anlegen")</div>
+                <div class="card-body">
+                    <form asp-action="SaveItem" asp-route-bereich="@bereich" method="post">
+                        <input asp-for="ItemForm.UiNavItemId" type="hidden" />
+
+                        <div class="mb-2">
+                            <label asp-for="ItemForm.UiCategoryId" class="form-label">Kategorie Seite</label>
+                            <select asp-for="ItemForm.UiCategoryId" class="form-select">
+                                <option value="">Bitte wählen</option>
+                                @foreach (var category in Model.Categories)
+                                {
+                                    <option value="@category.UiCategoryId">@category.Mode?.DisplayName / @category.DisplayName</option>
+                                }
+                            </select>
+                            <span asp-validation-for="ItemForm.UiCategoryId" class="text-danger"></span>
+                        </div>
+                        <div class="mb-2">
+                            <label asp-for="ItemForm.Title" class="form-label"></label>
+                            <input asp-for="ItemForm.Title" class="form-control" />
+                            <span asp-validation-for="ItemForm.Title" class="text-danger"></span>
+                        </div>
+                        <div class="mb-2">
+                            <label asp-for="ItemForm.SortOrder" class="form-label"></label>
+                            <input asp-for="ItemForm.SortOrder" class="form-control" />
+                        </div>
+
+                        <button type="submit" class="btn btn-success">Speichern</button>
+                        @if (Model.ItemForm.UiNavItemId > 0)
+                        {
+                            <button type="submit"
+                                    class="btn btn-outline-danger"
+                                    formaction="@Url.Action("DeleteItem", "Home", new { bereich })"
+                                    formmethod="post"
+                                    name="uiNavItemId"
+                                    value="@Model.ItemForm.UiNavItemId"
+                                    onclick="return confirm('KategorieSeite wirklich löschen?');">
+                                Löschen
+                            </button>
+                        }
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/ag-grid-community.min.js"></script>
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const settingsUrl = '@Url.Action("Settings", "Home", new { bereich })';
+        const deleteModeUrl = '@Url.Action("DeleteMode", "Home", new { bereich })';
+        const deleteCategoryUrl = '@Url.Action("DeleteCategory", "Home", new { bereich })';
+        const deleteItemUrl = '@Url.Action("DeleteItem", "Home", new { bereich })';
+
+        const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+
+        const optionsByType = {
+            mode: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Modes.Select(m => new { id = m.UiModeId, text = m.DisplayName }))),
+            category: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Categories.Select(c => new { id = c.UiCategoryId, text = (c.Mode != null ? c.Mode.DisplayName + " / " : "") + c.DisplayName }))),
+            item: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Items.Select(i => new { id = i.UiNavItemId, text = (i.Category != null && i.Category.Mode != null ? i.Category.Mode.DisplayName + " / " : "") + (i.Category != null ? i.Category.DisplayName + " / " : "") + i.Title })))
+        };
+
+        const protectedModeIds = new Set(
+            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.Modes
+                    .Where(m => string.Equals((m.Code ?? "").Trim(), "Technik", StringComparison.OrdinalIgnoreCase)
+                             || string.Equals((m.Code ?? "").Trim(), "Organisation", StringComparison.OrdinalIgnoreCase)
+                             || string.Equals((m.DisplayName ?? "").Trim(), "Technik", StringComparison.OrdinalIgnoreCase)
+                             || string.Equals((m.DisplayName ?? "").Trim(), "Organisation", StringComparison.OrdinalIgnoreCase))
+                    .Select(m => m.UiModeId)
+            ))
+        );
+
+        const rowData = [
+            { type: 'mode', label: 'Abteilung', selectedId: @Model.ModeForm.UiModeId },
+            { type: 'category', label: 'Kategorie', selectedId: @Model.CategoryForm.UiCategoryId },
+            { type: 'item', label: 'Kategorie Seite', selectedId: @Model.ItemForm.UiNavItemId }
+        ];
+
+        const sectionByType = {
+            mode: document.getElementById('modeEditorSection'),
+            category: document.getElementById('categoryEditorSection'),
+            item: document.getElementById('itemEditorSection')
+        };
+
+        const formByType = {
+            mode: document.querySelector('form[action*="SaveMode"]'),
+            category: document.querySelector('form[action*="SaveCategory"]'),
+            item: document.querySelector('form[action*="SaveItem"]')
+        };
+
+        function hideAllSections() {
+            Object.values(sectionByType).forEach(section => section?.classList.remove('show'));
+        }
+
+        function resetEditorForm(type) {
+            const form = formByType[type];
+            if (!form) return;
+
+            if (type === 'mode') {
+                const id = form.querySelector('[name="ModeForm.UiModeId"]');
+                const displayName = form.querySelector('[name="ModeForm.DisplayName"]');
+                const sortOrder = form.querySelector('[name="ModeForm.SortOrder"]');
+                const isActive = form.querySelector('[name="ModeForm.IsActive"]');
+                if (id) id.value = '0';
+                if (displayName) displayName.value = '';
+                if (sortOrder) sortOrder.value = '0';
+                if (isActive) isActive.checked = true;
+            }
+
+            if (type === 'category') {
+                const id = form.querySelector('[name="CategoryForm.UiCategoryId"]');
+                const modeId = form.querySelector('[name="CategoryForm.UiModeId"]');
+                const displayName = form.querySelector('[name="CategoryForm.DisplayName"]');
+                const sortOrder = form.querySelector('[name="CategoryForm.SortOrder"]');
+                const collapsible = form.querySelector('[name="CategoryForm.IsCollapsible"]');
+                const expanded = form.querySelector('[name="CategoryForm.IsExpandedDefault"]');
+                const isActive = form.querySelector('[name="CategoryForm.IsActive"]');
+                if (id) id.value = '0';
+                if (modeId) modeId.value = '';
+                if (displayName) displayName.value = '';
+                if (sortOrder) sortOrder.value = '0';
+                if (collapsible) collapsible.checked = true;
+                if (expanded) expanded.checked = true;
+                if (isActive) isActive.checked = true;
+            }
+
+            if (type === 'item') {
+                const id = form.querySelector('[name="ItemForm.UiNavItemId"]');
+                const categoryId = form.querySelector('[name="ItemForm.UiCategoryId"]');
+                const title = form.querySelector('[name="ItemForm.Title"]');
+                const sortOrder = form.querySelector('[name="ItemForm.SortOrder"]');
+                if (id) id.value = '0';
+                if (categoryId) categoryId.value = '';
+                if (title) title.value = '';
+                if (sortOrder) sortOrder.value = '0';
+            }
+        }
+
+        function showSection(type, isNew) {
+            hideAllSections();
+            sectionByType[type]?.classList.add('show');
+            if (isNew) {
+                resetEditorForm(type);
+            }
+            sectionByType[type]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function valuesCellRenderer(params) {
+            const select = document.createElement('select');
+            select.className = 'settings-grid-select';
+
+            const empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = 'Bitte wählen';
+            select.appendChild(empty);
+
+            const values = optionsByType[params.data.type] || [];
+            values.forEach(v => {
+                const option = document.createElement('option');
+                option.value = String(v.id);
+                option.textContent = v.text;
+                if (Number(params.data.selectedId) === Number(v.id)) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', () => {
+                params.data.selectedId = select.value ? Number(select.value) : 0;
+            });
+
+            return select;
+        }
+
+        function actionButtonRenderer(symbol, clickHandler) {
+            return function (params) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'settings-grid-action';
+                button.textContent = symbol;
+                button.addEventListener('click', () => clickHandler(params.data));
+                return button;
+            }
+        }
+
+        function navigateToEdit(data) {
+            if (!data.selectedId) return;
+            const url = new URL(settingsUrl, window.location.origin);
+            if (data.type === 'mode') url.searchParams.set('editModeId', data.selectedId);
+            if (data.type === 'category') url.searchParams.set('editCategoryId', data.selectedId);
+            if (data.type === 'item') url.searchParams.set('editItemId', data.selectedId);
+            window.location.assign(url.toString());
+        }
+
+        function navigateToNew(data) {
+            showSection(data.type, true);
+        }
+
+        function postDelete(url, fieldName, value) {
+            if (!value) return;
+
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.action = url;
+
+            const tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = '__RequestVerificationToken';
+            tokenInput.value = antiForgeryToken;
+            form.appendChild(tokenInput);
+
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = fieldName;
+            idInput.value = String(value);
+            form.appendChild(idInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function deleteEntry(data) {
+            if (!data.selectedId) return;
+
+            if (data.type === 'mode' && confirm('Abteilung wirklich löschen?')) {
+                if (protectedModeIds.has(Number(data.selectedId))) {
+                    alert('Die Abteilungen "Technik" und "Organisation" sind geschützt und können nicht gelöscht werden.');
+                    return;
+                }
+                postDelete(deleteModeUrl, 'uiModeId', data.selectedId);
+            }
+
+            if (data.type === 'category' && confirm('Kategorie wirklich löschen?')) {
+                postDelete(deleteCategoryUrl, 'uiCategoryId', data.selectedId);
+            }
+
+            if (data.type === 'item' && confirm('KategorieSeite wirklich löschen?')) {
+                postDelete(deleteItemUrl, 'uiNavItemId', data.selectedId);
+            }
+        }
+
+        const columnDefs = [
+            { field: 'label', headerName: '', flex: 1.3 },
+            { field: 'selectedId', headerName: '...', flex: 3, cellRenderer: valuesCellRenderer },
+            { headerName: 'hinzufügen', flex: 1, cellRenderer: actionButtonRenderer('+', navigateToNew) },
+            { headerName: 'löschen', flex: 1, cellRenderer: actionButtonRenderer('-', deleteEntry) },
+            { headerName: 'bearbeiten', flex: 1, cellRenderer: actionButtonRenderer('...', navigateToEdit) }
+        ];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            agGrid.createGrid(document.getElementById('navigationControlGrid'), {
+                rowData,
+                columnDefs,
+                defaultColDef: {
+                    sortable: false,
+                    filter: false,
+                    resizable: false
+                },
+                rowSelection: 'single',
+                suppressCellFocus: true,
+                headerHeight: 40,
+                rowHeight: 58
+            });
+
+            if (@Model.ModeForm.UiModeId > 0) {
+                showSection('mode', false);
+            } else if (@Model.CategoryForm.UiCategoryId > 0) {
+                showSection('category', false);
+            } else if (@Model.ItemForm.UiNavItemId > 0) {
+                showSection('item', false);
+            }
+        });
+    </script>
+}

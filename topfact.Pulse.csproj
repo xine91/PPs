@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyTitle>topfact Pulse</AssemblyTitle>
+    <AssemblyVersion>2026.6.1</AssemblyVersion>
+    <FileVersion>2026.6.1</FileVersion>
+    <Version>1.0.0</Version>
+    <Company>topfact AG</Company>
+    <Product>topfact Pulse Cloud Manager</Product>
+    <Copyright>Copyright © topfact AG $([System.DateTime]::Now.Year)</Copyright>
+    <Description>topfact Pulse – Dashboard &amp; Cloud Manager</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.72" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
+    <PackageReference Include="log4net" Version="3.3.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="QuestPDF" Version="2026.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="topfact6.API.ApiClient">
+      <HintPath>..\..\..\Desktop\Builds\topfact6.API.ApiClient.dll</HintPath>
+    </Reference>
+    <Reference Include="topfact6.API.Models">
+      <HintPath>..\..\..\Desktop\Builds\topfact6.API.Models.dll</HintPath>
+    </Reference>
+    <Reference Include="topfact6.Models">
+      <HintPath>..\..\..\Desktop\Builds\topfact6.Models.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

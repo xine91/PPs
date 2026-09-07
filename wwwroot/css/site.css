@@ -1,0 +1,185 @@
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-enabled {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-disabled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-blocked {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* Base styles (regardless of theme) */
+.bs-callout {
+    margin: 20px 0;
+    padding: 15px 30px 15px 15px;
+    border-left: 5px solid #eee;
+}
+
+    .bs-callout h4 {
+        margin-top: 0;
+    }
+
+    .bs-callout p:last-child {
+        margin-bottom: 0;
+    }
+
+    .bs-callout code,
+    .bs-callout .highlight {
+        background-color: #fff;
+    }
+
+/* Themes for different contexts */
+.bs-callout-danger {
+    background-color: #fcf2f2;
+    border-color: #dFb5b4;
+}
+
+.bs-callout-warning {
+    background-color: #fefbed;
+    border-color: #f1e7bc;
+}
+
+.bs-callout-info {
+    background-color: #f0f7fd;
+    border-color: #d0e3f0;
+}
+
+/* GitHub-style Side Panel */
+.side-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 400px;
+    height: 100vh;
+    background: white;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+}
+
+.side-panel.show {
+    transform: translateX(0);
+}
+
+.side-panel-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e7e9ed;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.side-panel-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #252930;
+    font-weight: 600;
+}
+
+.side-panel-header .btn-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #5d6778;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.side-panel-header .btn-close:hover {
+    background-color: #e9ecef;
+    color: #252930;
+}
+
+.side-panel-content {
+    padding: 1.5rem;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.side-panel-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+    z-index: 1040;
+}
+
+.side-panel-backdrop.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Floating trigger button */
+.side-panel-trigger {
+    position: fixed;
+    right: 2rem;
+    bottom: 2rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #15a362;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 1000;
+}
+
+.side-panel-trigger:hover {
+    background: #128c54;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.side-panel-trigger:active {
+    transform: translateY(0);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .side-panel {
+        width: 100vw;
+    }
+}
+
+@media (max-width: 576px) {
+    .side-panel-trigger {
+        right: 1rem;
+        bottom: 1rem;
+        width: 48px;
+        height: 48px;
+        font-size: 1rem;
+    }
+}

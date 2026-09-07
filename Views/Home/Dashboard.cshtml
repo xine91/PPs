@@ -1,0 +1,138 @@
+@using topfact.Pulse.Models
+@model LeitstandViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+@section Styles {
+    <style>
+        :root {
+            --bg-page: #0f172a;
+            --bg-card: #1e293b;
+            --border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        .dashboard-kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        @@media (max-width: 1200px) {
+            .dashboard-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @@media (max-width: 700px) {
+            .dashboard-kpis { grid-template-columns: 1fr; }
+        }
+
+        .kpi-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--kpi-color, #475569);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .kpi-top {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .kpi-icon {
+            font-size: 1rem;
+            color: #64748b;
+            display: inline-block;
+        }
+
+        .kpi-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+        }
+
+        .kpi-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .kpi-sub {
+            font-size: 0.72rem;
+            color: #475569;
+            margin-top: 0.3rem;
+        }
+    </style>
+}
+
+<div class="dashboard-kpis">
+    @* <div class="kpi-card">
+        <div class="kpi-top"><i class="ri-building-4-line kpi-icon"></i><div class="kpi-label">Tenants Gesamt</div></div>
+        <div class="kpi-value">@Model.TenantCount.ToString("N0")</div>
+        <div class="kpi-sub">Organisationen mit Monitoring</div>
+    </div> *@
+    <div class="kpi-card" style="--kpi-color:#6366f1;">
+        <div class="kpi-top"><i class="ri-time-line kpi-icon"></i><div class="kpi-label">Snapshot heute</div></div>
+        <div class="kpi-value">@Model.TenantsWithSnapshotToday.ToString("N0")</div>
+        <div class="kpi-sub">aktuelle Messungen</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#22c55e;">
+        <div class="kpi-top"><i class="ri-user-3-line kpi-icon"></i><div class="kpi-label">Aktive User (Woche)</div></div>
+        <div class="kpi-value">@Model.ActiveUsersWeekTotal.ToString("N0")</div>
+        <div class="kpi-sub">aktive Logins letzte 7 Tage</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#f59e0b;">
+        <div class="kpi-top"><i class="ri-error-warning-line kpi-icon"></i><div class="kpi-label">Fehler heute</div></div>
+        <div class="kpi-value">@Model.ErrorsTodayTotal.ToString("N0")</div>
+        <div class="kpi-sub">kritische Logeinträge</div>
+    </div>
+    @* <div class="kpi-card">
+        <div class="kpi-top"><i class="ri-file-list-3-line kpi-icon"></i><div class="kpi-label">Dokumente (30 Tage)</div></div>
+        <div class="kpi-value">@Model.DocsLast30DaysTotal.ToString("N0")</div>
+        <div class="kpi-sub">erkannt durch FormRec</div>
+    </div> *@
+    <div class="kpi-card" style="--kpi-color:#3b82f6;">
+        <div class="kpi-top"><i class="ri-folder-chart-line kpi-icon"></i><div class="kpi-label">Dokumente heute</div></div>
+        <div class="kpi-value">@Model.TfaCountTodayTotal.ToString("N0")</div>
+        <div class="kpi-sub">erstellte Dokumente heute</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#06b6d4;">
+        <div class="kpi-top"><i class="ri-mail-line kpi-icon"></i><div class="kpi-label">M365 Mails heute</div></div>
+        <div class="kpi-value">@Model.M365MailsTodayTotal.ToString("N0")</div>
+        <div class="kpi-sub">eingehende Mails (M365)</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#8b5cf6;">
+        <div class="kpi-top"><i class="ri-hdd-line kpi-icon"></i><div class="kpi-label">Ø Festplatten %</div></div>
+        <div class="kpi-value">@Model.AvgDiskUsagePercent.ToString("N1")%</div>
+        <div class="kpi-sub">Durchschnittliche Festplattenauslastung</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#ef4444;">
+        <div class="kpi-top"><i class="ri-tools-line kpi-icon"></i><div class="kpi-label">Prozesse nicht reagierend</div></div>
+        <div class="kpi-value">@Model.ProcessesNotRespondingTotal.ToString("N0")</div>
+        <div class="kpi-sub">aktive Meldungen</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#14b8a6;">
+        <div class="kpi-top"><i class="ri-award-line kpi-icon"></i><div class="kpi-label">Lizenzen bald ablaufend</div></div>
+        <div class="kpi-value">@Model.LicensesExpiringSoon.ToString("N0")</div>
+        <div class="kpi-sub">innerhalb 30 Tage</div>
+    </div>
+</div>

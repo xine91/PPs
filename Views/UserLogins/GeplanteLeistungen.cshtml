@@ -1,0 +1,531 @@
+@using topfact.Pulse.Models
+@model GeplanteLeistungenViewModel
+
+@{
+    ViewData["Title"] = "Geplante Leistungen";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/styles/ag-theme-quartz.css" />
+
+    <style>
+        /* ─── Base ──────────────────────────────────────────── */
+        body {
+            background-color: #0b1120;
+        }
+
+        /* ─── Page Header ───────────────────────────────────── */
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .page-header-left h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin: 0 0 0.2rem;
+            letter-spacing: -0.02em;
+        }
+
+        .page-header-left p {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        /* ─── KPI-Karten ────────────────────────────────────── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .kpi-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--kpi-color, #475569);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .kpi-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            margin-bottom: 0.35rem;
+        }
+
+        .kpi-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .kpi-sub {
+            font-size: 0.72rem;
+            color: #475569;
+            margin-top: 0.3rem;
+        }
+
+        /* ─── Sektion-Titel ─────────────────────────────────── */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--dot-color, #475569);
+            flex-shrink: 0;
+        }
+
+        /* ─── Grid-Karten ───────────────────────────────────── */
+        .grid-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px;
+            padding: 1.1rem 1.25rem 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .grid-meta {
+            font-size: 0.75rem;
+            color: #475569;
+            padding-top: 0.5rem;
+            text-align: right;
+        }
+
+        /* ─── Toolbar / Suche ───────────────────────────────── */
+        .grid-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .search-wrap {
+            position: relative;
+        }
+
+        .search-wrap svg {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            pointer-events: none;
+        }
+
+        .grid-search {
+            background: #0f172a;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 0.82rem;
+            padding: 0.42rem 0.75rem 0.42rem 2rem;
+            width: 220px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .grid-search::placeholder { color: #475569; }
+        .grid-search:focus { border-color: rgba(99,102,241,0.5); }
+
+        /* ─── Zwei-Spalten-Layout für untere Grids ──────────── */
+        .grid-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+
+        @@media (max-width: 900px) {
+            .grid-row-2 { grid-template-columns: 1fr; }
+        }
+
+        /* ─── AG-Grid Höhen ─────────────────────────────────── */
+        #leistungenGrid     { width: 100%; height: calc(100vh - 430px); min-height: 360px; }
+        #gruppenGrid        { width: 100%; height: 320px; }
+        #leistungen14TgGrid { width: 100%; height: 320px; }
+
+        /* ─── Zeilen-Farben ─────────────────────────────────── */
+        .ag-theme-quartz .row-erledigt {
+            background-color: rgba(34, 197, 94, 0.08) !important;
+            border-left: 3px solid #22c55e !important;
+        }
+        .ag-theme-quartz .row-erledigt:hover {
+            background-color: rgba(34, 197, 94, 0.15) !important;
+        }
+
+        .ag-theme-quartz .row-bearbeitung {
+            background-color: rgba(245, 158, 11, 0.08) !important;
+            border-left: 3px solid #f59e0b !important;
+        }
+        .ag-theme-quartz .row-bearbeitung:hover {
+            background-color: rgba(245, 158, 11, 0.15) !important;
+        }
+
+        .ag-theme-quartz .row-offen {
+            background-color: rgba(59, 130, 246, 0.08) !important;
+            border-left: 3px solid #3b82f6 !important;
+        }
+        .ag-theme-quartz .row-offen:hover {
+            background-color: rgba(59, 130, 246, 0.15) !important;
+        }
+
+        /* ─── Status-Text ───────────────────────────────────── */
+        .status-text { font-size: 0.8rem; font-weight: 600; }
+        .status-text.erledigt    { color: #4ade80; }
+        .status-text.bearbeitung { color: #fbbf24; }
+        .status-text.offen       { color: #60a5fa; }
+        .status-text.default     { color: #94a3b8; }
+
+        /* ─── Faktor-Balken in Summen-Grids ─────────────────── */
+        .faktor-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .faktor-bar-track {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .faktor-bar-fill {
+            height: 100%;
+            border-radius: 99px;
+            background: #338562;
+            transition: width 0.5s ease;
+        }
+
+        .faktor-val {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #94a3b8;
+            min-width: 34px;
+            text-align: right;
+        }
+    </style>
+}
+
+<!-- ─── Page Header ───────────────────────────────────────── -->
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>Geplante Leistungen</h1>
+        <p>Übersicht Planungen, Bearbeiter-Summen und erbrachte Leistungen</p>
+    </div>
+</div>
+
+<!-- ─── KPI-Karten ───────────────────────────────────────── -->
+<div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#6366f1;">
+        <div class="kpi-label">Geplante Einträge</div>
+        <div class="kpi-value" id="kpiEintraege">—</div>
+        <div class="kpi-sub">Planungen gesamt</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#22c55e;">
+        <div class="kpi-label">Plan-Stunden</div>
+        <div class="kpi-value" id="kpiPlanStunden">—</div>
+        <div class="kpi-sub">Stunden geplant</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#f59e0b;">
+        <div class="kpi-label">Ø Faktor Planung</div>
+        <div class="kpi-value" id="kpiFaktorPlan">—</div>
+        <div class="kpi-sub">Ø über alle Bearbeiter</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#3b82f6;">
+        <div class="kpi-label">Stunden 14 Tage</div>
+        <div class="kpi-value" id="kpiStunden14">—</div>
+        <div class="kpi-sub">Erbrachte Leistungen</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#06b6d4;">
+        <div class="kpi-label">Ø Faktor 14 Tage</div>
+        <div class="kpi-value" id="kpiFaktor14">—</div>
+        <div class="kpi-sub">Ø über alle Bearbeiter</div>
+    </div>
+</div>
+
+<!-- ─── Hauptgrid: Geplante Leistungen ───────────────────── -->
+<div class="grid-card">
+    <div class="section-header">
+        <div class="section-title">
+            <div class="section-title-dot" style="--dot-color:#6366f1;"></div>
+            Geplante Leistungen
+        </div>
+        <div class="grid-toolbar">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input class="grid-search" id="leistungenSearch" type="text" placeholder="Suchen…" />
+            </div>
+        </div>
+    </div>
+
+    <div id="leistungenGrid" class="ag-theme-quartz"></div>
+    <div class="grid-meta"><span id="leistungenCount">0</span> Einträge angezeigt</div>
+</div>
+
+<!-- ─── Untere Grids nebeneinander ───────────────────────── -->
+<div class="grid-row-2">
+
+    <!-- Summen nach Bearbeiter -->
+    <div class="grid-card" style="margin-bottom:0;">
+        <div class="section-header">
+            <div class="section-title">
+                <div class="section-title-dot" style="--dot-color:#22c55e;"></div>
+                Summen nach Bearbeiter
+            </div>
+        </div>
+        <div id="gruppenGrid" class="ag-theme-quartz"></div>
+    </div>
+
+    <!-- Erbrachte Leistungen 14 Tage -->
+    <div class="grid-card" style="margin-bottom:0;">
+        <div class="section-header">
+            <div class="section-title">
+                <div class="section-title-dot" style="--dot-color:#3b82f6;"></div>
+                Erbrachte Leistungen 14 Tage
+            </div>
+        </div>
+        <div id="leistungen14TgGrid" class="ag-theme-quartz"></div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.2.1/dist/ag-grid-community.min.js"></script>
+
+    <script>
+        /* ── Daten aus Model ─────────────────────────────────── */
+        const rowData         = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Entries));
+        const gruppenData     = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Gruppen));
+        const leistungen14Tg  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Leistungen14Tg));
+
+        /* ── Hilfsfunktionen ─────────────────────────────────── */
+        function normStatus(s) {
+            return (s ?? '').toLowerCase().trim();
+        }
+
+        function statusRenderer(p) {
+            const val = (p.value ?? '').trim();
+            const low = normStatus(val);
+            const cls = low === 'erledigt'       ? 'erledigt'
+                      : low === 'in bearbeitung' ? 'bearbeitung'
+                      : low === 'offen'          ? 'offen'
+                      : 'default';
+            return `<span class="status-text ${cls}">${val || '—'}</span>`;
+        }
+
+        function faktorRenderer(p) {
+            const val = parseFloat(p.value) || 0;
+            const pct = Math.min(val * 100, 100).toFixed(0);
+            const color = val >= 0.8 ? '#22c55e' : val >= 0.5 ? '#f59e0b' : '#f87171';
+            return `<div class="faktor-wrap">
+                        <div class="faktor-bar-track">
+                            <div class="faktor-bar-fill" style="width:${pct}%;background:${color};"></div>
+                        </div>
+                        <span class="faktor-val">${val.toFixed(2)}</span>
+                    </div>`;
+        }
+
+        function datumFormatter(p) {
+            return p.value ? new Date(p.value).toLocaleDateString('de-DE') : '';
+        }
+
+        /* ── KPI-Karten befüllen ─────────────────────────────── */
+        function fillKpis() {
+            const planStunden  = gruppenData.reduce((s, r) => s + (parseFloat(r.PlanStunden) || 0), 0);
+            const stunden14    = leistungen14Tg.reduce((s, r) => s + (parseFloat(r.LeistungsStunden_14Tg) || 0), 0);
+            const faktorPlan   = gruppenData.length
+                ? gruppenData.reduce((s, r) => s + (parseFloat(r.FaktorLeistungsplanung) || 0), 0) / gruppenData.length
+                : 0;
+            const faktor14     = leistungen14Tg.length
+                ? leistungen14Tg.reduce((s, r) => s + (parseFloat(r.FaktorLeistung_14Tg) || 0), 0) / leistungen14Tg.length
+                : 0;
+
+            document.getElementById('kpiEintraege').textContent    = rowData.length;
+            document.getElementById('kpiPlanStunden').textContent  = planStunden % 1 === 0 ? planStunden : planStunden.toFixed(1);
+            document.getElementById('kpiFaktorPlan').textContent   = faktorPlan.toFixed(2);
+            document.getElementById('kpiStunden14').textContent    = stunden14 % 1 === 0 ? stunden14 : stunden14.toFixed(1);
+            document.getElementById('kpiFaktor14').textContent     = faktor14.toFixed(2);
+        }
+
+        /* ── Hauptgrid: Geplante Leistungen ─────────────────── */
+        const leistungenDefs = [
+            { field: 'Bearbeiter',           headerName: 'Bearbeiter',       flex: 1.5, sortable: true, filter: true },
+            { field: 'ID',                   headerName: 'ID',               width: 80, sortable: true },
+            { field: 'Name1',                headerName: 'Firma',            flex: 1.5, sortable: true, filter: true },
+            { field: 'Titel',                headerName: 'Titel',            flex: 2,   sortable: true, filter: true },
+            { field: 'Aktion',               headerName: 'Aktion',           flex: 1.2, sortable: true, filter: true },
+            {
+                field: 'Stunden',
+                headerName: 'Stunden',
+                width: 100,
+                sortable: true,
+                type: 'numericColumn',
+                cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontVariantNumeric: 'tabular-nums' }
+            },
+            {
+                field: 'Datum',
+                headerName: 'Datum',
+                width: 115,
+                sortable: true,
+                valueFormatter: datumFormatter
+            },
+            {
+                field: 'Status',
+                headerName: 'Status',
+                width: 155,
+                sortable: true,
+                cellStyle: { display: 'flex', alignItems: 'center' },
+                cellRenderer: statusRenderer
+            },
+            { field: 'FkTblAnsprechpartner', headerName: 'Ansprechpartner', flex: 1, sortable: true }
+        ];
+
+        const leistungenApi = agGrid.createGrid(document.querySelector('#leistungenGrid'), {
+            rowData,
+            columnDefs: leistungenDefs,
+            defaultColDef: { resizable: true },
+            pagination: true,
+            paginationPageSize: 20,
+            paginationPageSizeSelector: [10, 20, 50, 100],
+            animateRows: true,
+            rowClassRules: {
+                'row-erledigt':    p => normStatus(p.data?.Status) === 'erledigt',
+                'row-bearbeitung': p => normStatus(p.data?.Status) === 'in bearbeitung',
+                'row-offen':       p => normStatus(p.data?.Status) === 'offen',
+            },
+            onGridReady: p => {
+                document.getElementById('leistungenCount').textContent = rowData.length;
+            }
+        });
+
+        /* ── Suchfeld ────────────────────────────────────────── */
+        document.getElementById('leistungenSearch').addEventListener('input', function () {
+            leistungenApi.setGridOption('quickFilterText', this.value);
+        });
+
+        /* ── Summen nach Bearbeiter ──────────────────────────── */
+        const gruppenDefs = [
+            { field: 'Bearbeiter',            headerName: 'Bearbeiter',          flex: 2,   sortable: true },
+            {
+                field: 'PlanStunden',
+                headerName: 'Plan-Stunden',
+                flex: 1,
+                sortable: true,
+                type: 'numericColumn',
+                cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontVariantNumeric: 'tabular-nums' }
+            },
+            {
+                field: 'AnzahlPlanungen',
+                headerName: 'Planungen',
+                width: 105,
+                sortable: true,
+                type: 'numericColumn',
+                cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }
+            },
+            {
+                field: 'FaktorLeistungsplanung',
+                headerName: 'Faktor',
+                flex: 1.5,
+                sortable: true,
+                cellStyle: { display: 'flex', alignItems: 'center' },
+                cellRenderer: faktorRenderer
+            }
+        ];
+
+        agGrid.createGrid(document.querySelector('#gruppenGrid'), {
+            rowData: gruppenData,
+            columnDefs: gruppenDefs,
+            defaultColDef: { resizable: true },
+            pagination: false,
+            animateRows: true
+        });
+
+        /* ── Erbrachte Leistungen 14 Tage ────────────────────── */
+        const leistungen14Defs = [
+            { field: 'Bearbeiter',              headerName: 'Bearbeiter',     flex: 2,   sortable: true },
+            {
+                field: 'LeistungsStunden_14Tg',
+                headerName: 'Stunden 14Tg',
+                flex: 1,
+                sortable: true,
+                type: 'numericColumn',
+                cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontVariantNumeric: 'tabular-nums' }
+            },
+            {
+                field: 'AnzahlLeistungen_14Tg',
+                headerName: 'Anzahl',
+                width: 95,
+                sortable: true,
+                type: 'numericColumn',
+                cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }
+            },
+            {
+                field: 'FaktorLeistung_14Tg',
+                headerName: 'Faktor',
+                flex: 1.5,
+                sortable: true,
+                cellStyle: { display: 'flex', alignItems: 'center' },
+                cellRenderer: faktorRenderer
+            }
+        ];
+
+        agGrid.createGrid(document.querySelector('#leistungen14TgGrid'), {
+            rowData: leistungen14Tg,
+            columnDefs: leistungen14Defs,
+            defaultColDef: { resizable: true },
+            pagination: false,
+            animateRows: true
+        });
+
+        /* ── KPIs initialisieren ─────────────────────────────── */
+        fillKpis();
+    </script>
+}

@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AssemblyTitle>topfact Pulse</AssemblyTitle>
+    <AssemblyVersion>2026.6.1</AssemblyVersion>
+    <FileVersion>2026.6.1</FileVersion>
+    <Version>1.0.0</Version>
+    <Company>topfact AG</Company>
+    <Product>topfact Pulse Cloud Manager</Product>
+    <Copyright>Copyright © topfact AG $([System.DateTime]::Now.Year)</Copyright>
+    <Description>topfact Pulse – Dashboard &amp; Cloud Manager</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.11">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.6" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="topfact-pulse.Administration\Models\" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,85 @@
+@using topfact.Pulse.Models
+@model LoginViewModel
+
+@{
+    ViewData["Title"] = "Anmelden";
+    Layout = "_LoginLayout";
+}
+
+@section Styles {
+    <link href="~/css/login.css" rel="stylesheet" />
+}
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+    <script type="module" src="~/js/login.js" asp-append-version="true"></script>
+}
+
+<div class="login-page">
+
+    <!-- Left panel: branding & info -->
+    <div class="login-panel-left">
+        
+        <div class="lp-hero">
+            <h1 class="lp-headline">topfact<br /><span class="lp-accent">Pulse</span></h1>
+            <p class="lp-description">Kontrollieren Sie Tenants, Anwendungen und Verwendung zentral – alles auf einem Platz.</p>
+        </div>
+
+        <ul class="lp-features">
+            <li><i class="bi bi-check-circle-fill"></i> Kontrolle der Server und Tenants</li>
+            <li><i class="bi bi-check-circle-fill"></i> Nutzung der topfact Produkte</li>
+            <li><i class="bi bi-check-circle-fill"></i> Analyse der Verwendung</li>
+        </ul>
+    </div>
+
+    <!-- Right panel: login form -->
+    <div class="login-panel-right">
+        <div class="lp-form-wrapper">
+            <div class="lp-form-header">
+                <h2 class="lp-form-title">Willkommen zurück</h2>
+                <p class="lp-form-subtitle">Melden Sie sich mit Ihren Zugangsdaten an.</p>
+            </div>
+
+            <form id="login-form" class="lp-form" novalidate data-login-url="@Url.Action("Login", "Account")">
+                @Html.AntiForgeryToken()
+
+                <div id="error-message" class="lp-alert lp-alert-danger" style="display: none;"></div>
+                <div id="success-message" class="lp-alert lp-alert-success" style="display: none;"></div>
+
+                <div class="lp-field">
+                    <label asp-for="Username" class="lp-label">Benutzername</label>
+                    <input asp-for="Username" id="username" class="lp-input" placeholder="Firmen-E-Mail-Adresse oder Benutzername" autocomplete="username" />
+                    <span asp-validation-for="Username" class="lp-validation"></span>
+                </div>
+
+                <div class="lp-field">
+                    <label asp-for="Password" class="lp-label">Kennwort</label>
+                    <div class="lp-input-password">
+                        <input asp-for="Password" type="password" id="password" class="lp-input" placeholder="Kennwort eingeben" autocomplete="current-password" />
+                        <button type="button" id="togglePasswordButton" class="lp-pw-toggle" tabindex="-1" aria-label="Kennwort anzeigen" aria-controls="password">
+                            <i class="bi bi-eye" id="pw-toggle-icon"></i>
+                        </button>
+                    </div>
+                    <span asp-validation-for="Password" class="lp-validation"></span>
+                </div>
+
+                <div class="lp-options">
+                    <label class="lp-checkbox-label">
+                        <input asp-for="RememberMe" type="checkbox" id="rememberMe" class="lp-checkbox" />
+                        <span>Angemeldet bleiben</span>
+                    </label>
+                    <a href="https://app.topfactcloud.de/0002/password" class="lp-link">Kennwort vergessen?</a>
+                </div>
+
+                <button type="submit" class="lp-btn-primary">Anmelden</button>
+
+               
+
+                <p class="lp-legal">
+                    Mit Ihrer Anmeldung stimmen Sie den <a href="#" class="lp-link lp-link-disabled" aria-disabled="true" tabindex="-1">Nutzungsbedingungen</a> und der <a href="#" class="lp-link lp-link-disabled" aria-disabled="true" tabindex="-1">Datenschutzerklärung</a> zu.
+                </p>
+            </form>
+        </div>
+    </div>
+
+</div>
